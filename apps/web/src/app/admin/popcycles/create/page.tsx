@@ -33,10 +33,11 @@ export default function CreatePopcyclePage() {
     resolver: zodResolver(popcycleSchema),
     defaultValues: {
       format: "standard",
-      entry_fee_cents: 100,
-      winner_pct: 70,
-      runner_up_pct: 15,
-      wildcard_pct: 10,
+      entry_fee_cents: 300,
+      first_pct: 65,
+      second_pct: 12,
+      third_pct: 5,
+      house_pct: 15,
     },
   });
 
@@ -141,19 +142,24 @@ export default function CreatePopcyclePage() {
             {errors.entry_fee_cents && <p className={errorClass}>{errors.entry_fee_cents.message}</p>}
           </div>
           <div>
-            <label htmlFor="winner_pct" className={labelClass}>Winner %</label>
-            <input id="winner_pct" type="number" {...register("winner_pct", { valueAsNumber: true })} className={fieldClass} />
-            {errors.winner_pct && <p className={errorClass}>{errors.winner_pct.message}</p>}
+            <label htmlFor="first_pct" className={labelClass}>1st Place %</label>
+            <input id="first_pct" type="number" {...register("first_pct", { valueAsNumber: true })} className={fieldClass} />
+            {errors.first_pct && <p className={errorClass}>{errors.first_pct.message}</p>}
           </div>
           <div>
-            <label htmlFor="runner_up_pct" className={labelClass}>Runner-Up %</label>
-            <input id="runner_up_pct" type="number" {...register("runner_up_pct", { valueAsNumber: true })} className={fieldClass} />
-            {errors.runner_up_pct && <p className={errorClass}>{errors.runner_up_pct.message}</p>}
+            <label htmlFor="second_pct" className={labelClass}>2nd Place %</label>
+            <input id="second_pct" type="number" {...register("second_pct", { valueAsNumber: true })} className={fieldClass} />
+            {errors.second_pct && <p className={errorClass}>{errors.second_pct.message}</p>}
           </div>
           <div>
-            <label htmlFor="wildcard_pct" className={labelClass}>Wildcard %</label>
-            <input id="wildcard_pct" type="number" {...register("wildcard_pct", { valueAsNumber: true })} className={fieldClass} />
-            {errors.wildcard_pct && <p className={errorClass}>{errors.wildcard_pct.message}</p>}
+            <label htmlFor="third_pct" className={labelClass}>3rd Place %</label>
+            <input id="third_pct" type="number" {...register("third_pct", { valueAsNumber: true })} className={fieldClass} />
+            {errors.third_pct && <p className={errorClass}>{errors.third_pct.message}</p>}
+          </div>
+          <div>
+            <label htmlFor="house_pct" className={labelClass}>House %</label>
+            <input id="house_pct" type="number" {...register("house_pct", { valueAsNumber: true })} className={fieldClass} />
+            {errors.house_pct && <p className={errorClass}>{errors.house_pct.message}</p>}
           </div>
         </div>
 

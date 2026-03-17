@@ -80,17 +80,18 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      // Prize distribution from the pool
+      // Prize distribution from the pool: 65% 1st, 12% 2nd, 5% 3rd, 15% house
       const prizePool = cycle.prize_pool ?? 0;
       const prizeShares: Record<number, number> = {
-        1: 0.50, // 1st place: 50%
-        2: 0.30, // 2nd place: 30%
-        3: 0.20, // 3rd place: 20%
+        1: 0.65, // 1st place: 65%
+        2: 0.12, // 2nd place: 12%
+        3: 0.05, // 3rd place: 5%
+        // 15% house (retained by platform)
       };
 
-      // Award prizes via Stripe Connect transfers
-      const winners = rankings.slice(0, 3);
-      for (const winner of winners) {
+      // Award cash prizes to top 3 via Stripe Connect transfers
+      const cashWinners = rankings.slice(0, 3);
+      for (const winner of cashWinners) {
         if (!winner.author_id) continue;
 
         const prizeAmount = Math.floor(prizePool * (prizeShares[winner.rank] ?? 0) * 100); // cents
@@ -154,6 +155,44 @@ Deno.serve(async (req: Request) => {
           title: winner.rank === 1 ? "You won the PopOff!" : `You placed #${winner.rank}!`,
           body: `Your story finished #${winner.rank} in the PopOff. Prize: $${(prizeAmount / 100).toFixed(2)}`,
           data: { popcycle_id: cycle.id, rank: winner.rank, prize_amount: prizeAmount / 100 },
+        });
+      }
+
+      // Award 1 free entry credit each to 4th–10th place
+      const creditWinners = rankings.slice(3, 10);
+      for (const runner of creditWinners) {
+        if (!runner.author_id) continue;
+
+        // Increment entry_credits on the user's profile
+        const { data: currentProfile } = await supabase
+          .from("profiles")
+          .select("entry_credits")
+          .eq("id", runner.author_id)
+          .single();
+
+        const currentCredits = currentProfile?.entry_credits ?? 0;
+        await supabase
+          .from("profiles")
+          .update({ entry_credits: currentCredits + 1 })
+          .eq("id", runner.author_id);
+
+        // Insert ranking record (no cash prize)
+        await supabase.from("rankings").insert({
+          popcycle_id: cycle.id,
+          story_id: runner.story_id,
+          author_id: runner.author_id,
+          rank: runner.rank,
+          prize_amount: 0,
+          raw_score: runner.raw_score,
+        });
+
+        // Send notification
+        await supabase.from("notifications").insert({
+          user_id: runner.author_id,
+          type: "popoff_result",
+          title: `You placed #${runner.rank}!`,
+          body: `Your story finished #${runner.rank} in the PopOff. You earned 1 free entry credit!`,
+          data: { popcycle_id: cycle.id, rank: runner.rank, entry_credit: 1 },
         });
       }
 

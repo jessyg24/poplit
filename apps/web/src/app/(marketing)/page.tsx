@@ -11,8 +11,8 @@ export default function HomePage() {
         </h1>
         <p className="text-xl text-[var(--color-text-secondary)] max-w-2xl mx-auto mb-10">
           A weekly short story contest where reader engagement is the vote.
-          Writers pay $1 to enter, readers read for free, and the most-read
-          story wins 70% of the pot.
+          Writers pay $3 to enter, readers read for free, and the most-read
+          story wins 65% of the pot.
         </p>
         <div className="flex items-center justify-center gap-4">
           <Link
@@ -38,7 +38,7 @@ export default function HomePage() {
             {
               step: "1",
               title: "Writers Submit",
-              desc: "Pay $1, write a short story (1,000–5,000 words), and submit to the weekly Popcycle.",
+              desc: "Pay $3, write a short story (1,000–5,000 words), and submit to the weekly Popcycle.",
             },
             {
               step: "2",
@@ -48,7 +48,7 @@ export default function HomePage() {
             {
               step: "3",
               title: "Best Story Wins",
-              desc: "At Popoff, the most-read story takes home 70% of the prize pool. Confetti included.",
+              desc: "At Popoff, the most-read story takes home 65% of the prize pool. Confetti included.",
             },
           ].map((item) => (
             <div

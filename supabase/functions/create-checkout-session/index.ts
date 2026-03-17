@@ -8,8 +8,8 @@ const CORS_HEADERS = {
 
 // Map tier names to Stripe price IDs (set these in env vars)
 const TIER_PRICE_MAP: Record<string, string> = {
-  tier_1: Deno.env.get("STRIPE_PRICE_TIER_1") ?? "",
-  tier_2: Deno.env.get("STRIPE_PRICE_TIER_2") ?? "",
+  monthly: Deno.env.get("STRIPE_PRICE_MONTHLY") ?? "",
+  annual: Deno.env.get("STRIPE_PRICE_ANNUAL") ?? "",
 };
 
 Deno.serve(async (req: Request) => {
@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
 
     if (!tier || !TIER_PRICE_MAP[tier]) {
       return new Response(
-        JSON.stringify({ error: "Invalid tier. Must be 'tier_1' or 'tier_2'" }),
+        JSON.stringify({ error: "Invalid tier. Must be 'monthly' or 'annual'" }),
         { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
       );
     }

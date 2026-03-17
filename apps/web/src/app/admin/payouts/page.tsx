@@ -24,7 +24,7 @@ export default async function PayoutsPage() {
   // Compute totals
   const totalPrizePool = (popcycles ?? []).reduce((sum, pc) => sum + pc.prize_pool_cents, 0);
   const totalEntryFees = (popcycles ?? []).reduce((sum, pc) => sum + pc.prize_pool_cents, 0); // TODO: Track entry fees separately
-  const platformRevenue = Math.round(totalEntryFees * (PRIZE_DISTRIBUTION.platformPct / 100));
+  const platformRevenue = Math.round(totalEntryFees * (PRIZE_DISTRIBUTION.housePct / 100));
 
   return (
     <div>
@@ -42,7 +42,7 @@ export default async function PayoutsPage() {
           <p className="mt-1 text-3xl font-bold text-[var(--color-text)]">{formatCents(totalPrizePool)}</p>
         </div>
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-          <p className="text-sm text-[var(--color-text-secondary)]">Platform Revenue ({PRIZE_DISTRIBUTION.platformPct}%)</p>
+          <p className="text-sm text-[var(--color-text-secondary)]">House Revenue ({PRIZE_DISTRIBUTION.housePct}%)</p>
           <p className="mt-1 text-3xl font-bold text-[var(--color-primary)]">{formatCents(platformRevenue)}</p>
         </div>
       </div>
@@ -56,10 +56,10 @@ export default async function PayoutsPage() {
               <th className="px-4 py-3 font-medium">Popcycle</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Prize Pool</th>
-              <th className="px-4 py-3 font-medium">Winner ({PRIZE_DISTRIBUTION.winnerPct}%)</th>
-              <th className="px-4 py-3 font-medium">Runner-Up ({PRIZE_DISTRIBUTION.runnerUpPct}%)</th>
-              <th className="px-4 py-3 font-medium">Wildcard ({PRIZE_DISTRIBUTION.wildcardPct}%)</th>
-              <th className="px-4 py-3 font-medium">Platform ({PRIZE_DISTRIBUTION.platformPct}%)</th>
+              <th className="px-4 py-3 font-medium">1st ({PRIZE_DISTRIBUTION.firstPct}%)</th>
+              <th className="px-4 py-3 font-medium">2nd ({PRIZE_DISTRIBUTION.secondPct}%)</th>
+              <th className="px-4 py-3 font-medium">3rd ({PRIZE_DISTRIBUTION.thirdPct}%)</th>
+              <th className="px-4 py-3 font-medium">House ({PRIZE_DISTRIBUTION.housePct}%)</th>
               <th className="px-4 py-3 font-medium">Pop-Off</th>
             </tr>
           </thead>
@@ -74,16 +74,16 @@ export default async function PayoutsPage() {
                   </td>
                   <td className="px-4 py-3 font-mono text-[var(--color-text)]">{formatCents(pool)}</td>
                   <td className="px-4 py-3 font-mono text-[var(--color-text)]">
-                    {formatCents(Math.round(pool * (pc.winner_pct / 100)))}
+                    {formatCents(Math.round(pool * (pc.first_pct / 100)))}
                   </td>
                   <td className="px-4 py-3 font-mono text-[var(--color-text)]">
-                    {formatCents(Math.round(pool * (pc.runner_up_pct / 100)))}
+                    {formatCents(Math.round(pool * (pc.second_pct / 100)))}
                   </td>
                   <td className="px-4 py-3 font-mono text-[var(--color-text)]">
-                    {formatCents(Math.round(pool * (pc.wildcard_pct / 100)))}
+                    {formatCents(Math.round(pool * (pc.third_pct / 100)))}
                   </td>
                   <td className="px-4 py-3 font-mono text-[var(--color-primary)]">
-                    {formatCents(Math.round(pool * (PRIZE_DISTRIBUTION.platformPct / 100)))}
+                    {formatCents(Math.round(pool * (pc.house_pct / 100)))}
                   </td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(pc.popoff_at)}</td>
                 </tr>

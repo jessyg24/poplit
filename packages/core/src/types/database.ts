@@ -7,7 +7,7 @@ export type PopcycleFormat = "standard" | "flash" | "themed" | "sponsored";
 export type ReportTarget = "story" | "user" | "comment";
 export type ReportStatus = "open" | "investigating" | "resolved" | "dismissed";
 export type StrikeStatus = "active" | "appealed" | "reversed" | "expired";
-export type SubscriptionTier = "tier_1" | "tier_2";
+export type SubscriptionTier = "monthly" | "annual";
 export type SubscriptionStatus = "active" | "past_due" | "canceled" | "trialing";
 export type NotificationType =
   | "pop_milestone"
@@ -101,9 +101,10 @@ export interface Database {
           popoff_at: string;
           entry_fee_cents: number;
           prize_pool_cents: number;
-          winner_pct: number;
-          runner_up_pct: number;
-          wildcard_pct: number;
+          house_pct: number;
+          first_pct: number;
+          second_pct: number;
+          third_pct: number;
           sponsor_name: string | null;
           sponsor_logo_url: string | null;
           created_at: string;

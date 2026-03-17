@@ -6,7 +6,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const ENTRY_FEE_CENTS = 100; // $1.00
+const ENTRY_FEE_CENTS = 300; // $3.00
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {

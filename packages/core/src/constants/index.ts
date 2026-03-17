@@ -31,14 +31,17 @@ export const STORY_LIMITS = {
 } as const;
 
 // Entry fee
-export const ENTRY_FEE_CENTS = 100; // $1.00
+export const ENTRY_FEE_CENTS = 300; // $3.00
 
 // Prize distribution defaults
 export const PRIZE_DISTRIBUTION = {
-  winnerPct: 70,
-  runnerUpPct: 15,
-  wildcardPct: 10,
-  platformPct: 5,
+  housePct: 15,
+  firstPct: 65,
+  secondPct: 12,
+  thirdPct: 5,
+  // 4th–10th each receive 1 free entry credit (no cash payout)
+  runnerUpFreeEntryCredits: 1,
+  runnerUpPlaces: { start: 4, end: 10 },
 } as const;
 
 // Genres
@@ -107,15 +110,17 @@ export const BADGE_DEFINITIONS = {
 
 // Subscription tiers
 export const SUBSCRIPTION_TIERS = {
-  tier_1: {
-    name: "PopLit+",
-    priceMonthly: 499, // $4.99
-    features: ["Ad-free reading", "Early access to stories", "Exclusive badges"],
+  monthly: {
+    name: "PopLit Monthly",
+    priceCents: 1200, // $12/mo
+    entryCredits: 5, // 5 entry credits, rollover
+    features: ["5 entry credits/month (rollover)", "Ad-free reading", "Early access to stories", "Exclusive badges"],
   },
-  tier_2: {
-    name: "PopLit Pro",
-    priceMonthly: 999, // $9.99
-    features: ["All Tier 1 features", "1 free entry per month", "Advanced analytics", "Priority support"],
+  annual: {
+    name: "PopLit Annual",
+    priceCents: 13200, // $132/yr
+    entryCredits: 65, // 65 entry credits
+    features: ["65 entry credits/year", "Ad-free reading", "Early access to stories", "Exclusive badges", "Best value — save $12/yr"],
   },
 } as const;
 

@@ -82,9 +82,10 @@ export const popcycleSchema = z.object({
   reading_close_at: z.string().datetime(),
   popoff_at: z.string().datetime(),
   entry_fee_cents: z.number().int().min(0),
-  winner_pct: z.number().int().min(0).max(100),
-  runner_up_pct: z.number().int().min(0).max(100),
-  wildcard_pct: z.number().int().min(0).max(100),
+  house_pct: z.number().int().min(0).max(100).default(15),
+  first_pct: z.number().int().min(0).max(100).default(65),
+  second_pct: z.number().int().min(0).max(100).default(12),
+  third_pct: z.number().int().min(0).max(100).default(5),
   sponsor_name: z.string().optional(),
   sponsor_logo_url: z.string().url().optional(),
 });

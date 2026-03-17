@@ -44,9 +44,9 @@ export function PopoffReveal({
   ];
   const labels = ["2nd", "1st", "3rd"];
   const prizePercents = [
-    PRIZE_DISTRIBUTION.runnerUpPct,
-    PRIZE_DISTRIBUTION.winnerPct,
-    PRIZE_DISTRIBUTION.wildcardPct,
+    PRIZE_DISTRIBUTION.secondPct,
+    PRIZE_DISTRIBUTION.firstPct,
+    PRIZE_DISTRIBUTION.thirdPct,
   ];
 
   return (

@@ -97,18 +97,23 @@ export default async function PopoffPage() {
           {[
             {
               label: "1st Place",
-              pct: PRIZE_DISTRIBUTION.winnerPct,
+              pct: PRIZE_DISTRIBUTION.firstPct,
               color: "text-yellow-500",
             },
             {
               label: "2nd Place",
-              pct: PRIZE_DISTRIBUTION.runnerUpPct,
+              pct: PRIZE_DISTRIBUTION.secondPct,
               color: "text-gray-400",
             },
             {
-              label: "Wildcard",
-              pct: PRIZE_DISTRIBUTION.wildcardPct,
+              label: "3rd Place",
+              pct: PRIZE_DISTRIBUTION.thirdPct,
               color: "text-amber-600",
+            },
+            {
+              label: "House",
+              pct: PRIZE_DISTRIBUTION.housePct,
+              color: "text-[var(--color-text-secondary)]",
             },
           ].map(({ label, pct, color }) => (
             <div
@@ -121,6 +126,10 @@ export default async function PopoffPage() {
               </span>
             </div>
           ))}
+          <div className="flex items-center justify-between text-sm pt-2 border-t border-[var(--color-border)]">
+            <span className="font-semibold text-[var(--color-text-secondary)]">4th–10th Place</span>
+            <span className="text-[var(--color-text-secondary)]">1 free entry credit each</span>
+          </div>
         </div>
       </div>
     </div>
