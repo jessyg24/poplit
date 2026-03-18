@@ -60,7 +60,7 @@ export default async function SponsorsPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-[var(--color-text)]">{pc.title}</h3>
-                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{pc.prompt}</p>
+                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{pc.prompt_theme}</p>
                 </div>
                 <span className="inline-block rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700">
                   {pc.status.replace(/_/g, " ")}

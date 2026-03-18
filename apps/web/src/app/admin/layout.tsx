@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AdminLogoutButton } from "./logout-button";
 
 interface SidebarLink {
   label: string;
@@ -88,12 +89,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex min-h-screen bg-[var(--color-background)]">
       {/* Sidebar */}
-      <aside className="w-64 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+      <aside className="w-64 shrink-0 border-r border-[var(--color-border)] bg-[var(--color-surface)] p-4 flex flex-col">
         <Link href="/admin" className="mb-6 block text-lg font-bold text-[var(--color-primary)]">
           PopLit Admin
         </Link>
 
-        <nav className="space-y-6">
+        <nav className="space-y-6 flex-1">
           {sections.map((section) => (
             <div key={section.title}>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">
@@ -119,6 +120,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </div>
           ))}
         </nav>
+
+        {/* Logout */}
+        <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+          <AdminLogoutButton />
+        </div>
       </aside>
 
       {/* Main content */}

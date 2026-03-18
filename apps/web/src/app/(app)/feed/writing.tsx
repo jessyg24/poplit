@@ -53,7 +53,12 @@ interface StoryWithScore {
 interface Popcycle {
   id: string;
   title: string;
-  prompt: string;
+  prompt_theme: string;
+  prompt_1: string;
+  prompt_2: string;
+  prompt_3: string;
+  prompt_4: string;
+  prompt_5: string;
   status: string;
   submissions_open_at: string;
   submissions_close_at: string;
@@ -390,7 +395,14 @@ function OverviewTab({
           <h2 className="text-lg font-bold text-slate-800 mb-2">
             Active Popcycle: {popcycle.title}
           </h2>
-          <p className="text-sm text-slate-500 mb-4">{popcycle.prompt}</p>
+          <p className="text-sm font-medium text-slate-600 mb-2">{popcycle.prompt_theme}</p>
+          <ul className="text-sm text-slate-500 mb-4 space-y-1 list-disc list-inside">
+            {[popcycle.prompt_1, popcycle.prompt_2, popcycle.prompt_3, popcycle.prompt_4, popcycle.prompt_5]
+              .filter(Boolean)
+              .map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+          </ul>
           <div className="flex flex-wrap gap-4 text-xs text-slate-400">
             <span>
               Status:{" "}
@@ -488,6 +500,7 @@ function SubmitTab({
 }) {
   const [preview, setPreview] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [selectedPrompt, setSelectedPrompt] = useState<string>("");
 
   const isOpen =
     popcycle &&
@@ -606,6 +619,50 @@ function SubmitTab({
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {/* Prompt Selection */}
+          <div>
+            <label className={labelClass}>
+              Choose a Prompt
+            </label>
+            <p className="text-xs text-slate-400 mb-2">{popcycle.prompt_theme}</p>
+            <div className="space-y-2">
+              {([
+                { key: "prompt_1", value: popcycle.prompt_1 },
+                { key: "prompt_2", value: popcycle.prompt_2 },
+                { key: "prompt_3", value: popcycle.prompt_3 },
+                { key: "prompt_4", value: popcycle.prompt_4 },
+                { key: "prompt_5", value: popcycle.prompt_5 },
+              ] as const)
+                .filter((p) => p.value)
+                .map((p, i) => (
+                  <label
+                    key={p.key}
+                    className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                      selectedPrompt === p.key
+                        ? "border-purple-400 bg-purple-50"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="selected_prompt"
+                      value={p.key}
+                      checked={selectedPrompt === p.key}
+                      onChange={() => setSelectedPrompt(p.key)}
+                      className="mt-0.5 accent-purple-600"
+                    />
+                    <span className="text-sm text-slate-700">
+                      <span className="font-medium text-slate-500 mr-1">{i + 1}.</span>
+                      {p.value}
+                    </span>
+                  </label>
+                ))}
+            </div>
+            {!selectedPrompt && (
+              <p className="mt-1 text-sm text-amber-500">Please select a prompt before submitting.</p>
+            )}
+          </div>
+
           {/* Title */}
           <div>
             <label htmlFor="w-title" className={labelClass}>
@@ -768,7 +825,7 @@ function SubmitTab({
           {/* Submit */}
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !selectedPrompt}
             className="w-full py-3.5 rounded-xl bg-purple-600 text-white font-semibold text-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting
@@ -843,7 +900,7 @@ function PopoffTab({
           {popcycle.title}{" "}
           <span className="text-purple-600">Popoff</span>
         </h1>
-        <p className="mt-2 text-sm text-slate-500">{popcycle.prompt}</p>
+        <p className="mt-2 text-sm text-slate-500">{popcycle.prompt_theme}</p>
       </div>
 
       {/* Countdown or Results */}

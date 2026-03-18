@@ -37,7 +37,7 @@ export default async function ArchivePage() {
                 </span>
               </div>
               <h3 className="text-xl font-semibold mb-1">{pc.title}</h3>
-              <p className="text-sm text-[var(--color-text-secondary)] mb-3">{pc.prompt}</p>
+              <p className="text-sm text-[var(--color-text-secondary)] mb-3">{pc.prompt_theme}</p>
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">
                   Prize Pool: {formatCents(pc.prize_pool_cents)}

@@ -90,7 +90,12 @@ export interface Database {
         Row: {
           id: string;
           title: string;
-          prompt: string;
+          prompt_theme: string;
+          prompt_1: string;
+          prompt_2: string;
+          prompt_3: string;
+          prompt_4: string;
+          prompt_5: string;
           description: string | null;
           format: PopcycleFormat;
           status: PopcycleStatus;

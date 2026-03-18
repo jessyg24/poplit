@@ -74,7 +74,7 @@ export default async function PopoffPage() {
           <span className="text-[var(--color-primary)]">Popoff</span>
         </h1>
         <p className="mt-2 text-[var(--color-text-secondary)]">
-          {popcycle.prompt}
+          {popcycle.prompt_theme}
         </p>
       </div>
 

@@ -73,7 +73,12 @@ export const reportSchema = z.object({
 // Admin: Popcycle creation
 export const popcycleSchema = z.object({
   title: z.string().min(1).max(100),
-  prompt: z.string().min(1).max(500),
+  prompt_theme: z.string().min(1, "Theme is required").max(200),
+  prompt_1: z.string().min(1, "Prompt 1 is required").max(500),
+  prompt_2: z.string().min(1, "Prompt 2 is required").max(500),
+  prompt_3: z.string().min(1, "Prompt 3 is required").max(500),
+  prompt_4: z.string().min(1, "Prompt 4 is required").max(500),
+  prompt_5: z.string().min(1, "Prompt 5 is required").max(500),
   description: z.string().max(1000).optional(),
   format: z.enum(["standard", "flash", "themed", "sponsored"]),
   submissions_open_at: z.string().datetime(),

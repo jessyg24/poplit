@@ -38,7 +38,12 @@ export function EditPopcycleButton({ popcycle }: EditPopcycleButtonProps) {
 
   const [form, setForm] = useState({
     title: popcycle.title,
-    prompt: popcycle.prompt,
+    prompt_theme: popcycle.prompt_theme ?? "",
+    prompt_1: popcycle.prompt_1 ?? "",
+    prompt_2: popcycle.prompt_2 ?? "",
+    prompt_3: popcycle.prompt_3 ?? "",
+    prompt_4: popcycle.prompt_4 ?? "",
+    prompt_5: popcycle.prompt_5 ?? "",
     description: popcycle.description ?? "",
     format: popcycle.format,
     submissions_open_at: toLocalDatetime(popcycle.submissions_open_at),
@@ -64,7 +69,12 @@ export function EditPopcycleButton({ popcycle }: EditPopcycleButtonProps) {
     startTransition(async () => {
       const result = await updatePopcycle(popcycle.id, {
         title: form.title,
-        prompt: form.prompt,
+        prompt_theme: form.prompt_theme,
+        prompt_1: form.prompt_1,
+        prompt_2: form.prompt_2,
+        prompt_3: form.prompt_3,
+        prompt_4: form.prompt_4,
+        prompt_5: form.prompt_5,
         description: form.description || null,
         format: form.format,
         submissions_open_at: new Date(form.submissions_open_at).toISOString(),
@@ -116,8 +126,28 @@ export function EditPopcycleButton({ popcycle }: EditPopcycleButtonProps) {
             <input value={form.title} onChange={(e) => update("title", e.target.value)} className={fieldClass} />
           </div>
           <div>
-            <label className={labelClass}>Prompt</label>
-            <textarea value={form.prompt} onChange={(e) => update("prompt", e.target.value)} className={fieldClass} rows={3} />
+            <label className={labelClass}>Prompt Theme</label>
+            <input value={form.prompt_theme} onChange={(e) => update("prompt_theme", e.target.value)} className={fieldClass} placeholder="Overall theme for this popcycle's prompts" />
+          </div>
+          <div>
+            <label className={labelClass}>Prompt 1</label>
+            <textarea value={form.prompt_1} onChange={(e) => update("prompt_1", e.target.value)} className={fieldClass} rows={2} />
+          </div>
+          <div>
+            <label className={labelClass}>Prompt 2</label>
+            <textarea value={form.prompt_2} onChange={(e) => update("prompt_2", e.target.value)} className={fieldClass} rows={2} />
+          </div>
+          <div>
+            <label className={labelClass}>Prompt 3</label>
+            <textarea value={form.prompt_3} onChange={(e) => update("prompt_3", e.target.value)} className={fieldClass} rows={2} />
+          </div>
+          <div>
+            <label className={labelClass}>Prompt 4</label>
+            <textarea value={form.prompt_4} onChange={(e) => update("prompt_4", e.target.value)} className={fieldClass} rows={2} />
+          </div>
+          <div>
+            <label className={labelClass}>Prompt 5</label>
+            <textarea value={form.prompt_5} onChange={(e) => update("prompt_5", e.target.value)} className={fieldClass} rows={2} />
           </div>
           <div>
             <label className={labelClass}>Description</label>

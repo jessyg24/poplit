@@ -79,11 +79,28 @@ export default function CreatePopcyclePage() {
           {errors.title && <p className={errorClass}>{errors.title.message}</p>}
         </div>
 
-        {/* Prompt */}
+        {/* Prompt Theme */}
         <div>
-          <label htmlFor="prompt" className={labelClass}>Prompt</label>
-          <textarea id="prompt" {...register("prompt")} className={fieldClass} rows={3} placeholder="Write a story about..." />
-          {errors.prompt && <p className={errorClass}>{errors.prompt.message}</p>}
+          <label htmlFor="prompt_theme" className={labelClass}>Prompt Theme</label>
+          <input id="prompt_theme" {...register("prompt_theme")} className={fieldClass} placeholder="The overarching theme connecting all 5 prompts" />
+          {errors.prompt_theme && <p className={errorClass}>{errors.prompt_theme.message}</p>}
+        </div>
+
+        {/* 5 Prompts */}
+        <div className="space-y-3">
+          <label className={labelClass}>Prompts (5 related prompts for writers to choose from)</label>
+          {([1, 2, 3, 4, 5] as const).map((n) => {
+            const field = `prompt_${n}` as const;
+            return (
+              <div key={n}>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs font-bold text-white">{n}</span>
+                  <textarea id={field} {...register(field)} className={fieldClass} rows={2} placeholder={`Prompt ${n}...`} />
+                </div>
+                {errors[field] && <p className={errorClass + " ml-8"}>{errors[field]?.message}</p>}
+              </div>
+            );
+          })}
         </div>
 
         {/* Description */}

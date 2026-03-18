@@ -148,7 +148,7 @@ export function ContentTaxonomyManager({
               <Tag
                 key={genre}
                 label={genre}
-                colorClass="bg-[var(--color-primary)] bg-opacity-10 text-[var(--color-primary)]"
+                colorClass="bg-orange-100 text-orange-800"
                 onRemove={() => handleAction(removeGenre, genre, `Removed genre: ${genre}`)}
                 isPending={isPending}
               />
@@ -173,7 +173,7 @@ export function ContentTaxonomyManager({
               <Tag
                 key={mood}
                 label={mood}
-                colorClass="bg-[var(--color-accent)] bg-opacity-10 text-[var(--color-accent)]"
+                colorClass="bg-purple-100 text-purple-800"
                 onRemove={() => handleAction(removeMood, mood, `Removed mood: ${mood}`)}
                 isPending={isPending}
               />
