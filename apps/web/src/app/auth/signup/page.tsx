@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-type OAuthProvider = "google" | "apple" | "facebook";
+type OAuthProvider = "google";
 
 export default function SignupPage() {
   const supabase = createClient();
@@ -112,8 +112,6 @@ export default function SignupPage() {
           {(
             [
               { provider: "google" as const, label: "Google" },
-              { provider: "apple" as const, label: "Apple" },
-              { provider: "facebook" as const, label: "Facebook" },
             ] as const
           ).map(({ provider, label }) => (
             <button
