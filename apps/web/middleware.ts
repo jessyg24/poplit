@@ -15,11 +15,12 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Auth routes — redirect authenticated users to feed
+  // Auth routes — redirect authenticated users
   if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
     if (user) {
       const url = request.nextUrl.clone();
-      url.pathname = "/feed";
+      // Admin goes straight to admin dashboard, regular users to feed
+      url.pathname = user.app_metadata?.role === "admin" ? "/admin" : "/feed";
       return NextResponse.redirect(url);
     }
     return supabaseResponse;
@@ -47,6 +48,13 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     url.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // Admin users hitting regular app routes get redirected to admin dashboard
+  if (user.app_metadata?.role === "admin" && pathname.startsWith("/feed")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin";
     return NextResponse.redirect(url);
   }
 
