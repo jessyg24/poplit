@@ -9,13 +9,13 @@ export const SCORING_WEIGHTS = {
   multiplierCeiling: 1.10,
 } as const;
 
-// Section weights for pop scoring (steeper curve rewards deep reading)
+// Section weights for pop scoring
 export const SECTION_WEIGHTS = {
   1: 1.0,
-  2: 1.3,
-  3: 1.7,
-  4: 2.2,
-  5: 3.0,
+  2: 1.2,
+  3: 1.4,
+  4: 1.6,
+  5: 2.0,
 } as const;
 
 // Minimum read time (ms) per section to count as a valid pop
@@ -135,15 +135,67 @@ export const RATE_LIMITS = {
 // AI detection threshold (≥65% flags as AI-generated)
 export const AI_DETECTION_THRESHOLD = 0.65;
 
-// Past winner boost: readers who won previous Popoff get up to +15% (decays linearly over popcycle)
-export const PAST_WINNER_BOOST_MAX = 0.15;
-
-// Time quality factor: scales from 1.00 at 15s to 1.10 at 120s, capped there
-export const TIME_QUALITY_MAX_BONUS = 0.10;
-export const TIME_QUALITY_CAP_MS = 120_000;
-
-// Completion bonus: when reader finishes all 5 sections, retroactively multiply all their pops ×1.15
-export const COMPLETION_BONUS = 1.15;
-
 // Max inline text reactions per reader per story
 export const MAX_REACTIONS_PER_READER = 10;
+
+// Survey decay — higher answer = more disappointment = more decay
+export const SURVEY_DECAY = { A: 1.00, B: 0.95, C: 0.82, D: 0.65 } as const;
+
+// Highlight convergence — overlapping reactions boost score
+export const HIGHLIGHT_CONVERGENCE = {
+  overlapChars: 50,
+  tier1Count: 3,
+  tier1Multiplier: 1.25,
+  tier2Count: 5,
+  tier2Multiplier: 1.50,
+} as const;
+
+// Re-read bonus per re-read
+export const RE_READ_BONUS_PER = 0.3;
+
+// Pop-py Garden boost tiers — more gardens = higher pop multiplier
+export const GARDEN_BOOST_TIERS = [
+  { minCount: 10, multiplier: 1.50 },
+  { minCount: 5, multiplier: 1.35 },
+  { minCount: 2, multiplier: 1.20 },
+  { minCount: 1, multiplier: 1.10 },
+] as const;
+
+export function gardenBoostForCount(count: number): number {
+  for (const tier of GARDEN_BOOST_TIERS) {
+    if (count >= tier.minCount) return tier.multiplier;
+  }
+  return 1.0;
+}
+
+// Exit survey reasons
+export const EXIT_SURVEY_REASONS = [
+  { key: "A", label: "Not my taste — the genre/style didn't click" },
+  { key: "B", label: "Lost interest — the story didn't hold my attention" },
+  { key: "C", label: "Pacing issues — too slow, too fast, or confusing" },
+  { key: "D", label: "Writing quality — grammar, clarity, or craft issues" },
+  { key: "E", label: "Just busy — I'll come back later" },
+  { key: "F", label: "Content warning — the content made me uncomfortable" },
+] as const;
+
+// Ending survey questions
+export const ENDING_SURVEY_QUESTIONS = {
+  q1: {
+    prompt: "Did the ending deliver?",
+    options: [
+      { key: "A", label: "Yes — stuck the landing" },
+      { key: "B", label: "It was fine" },
+      { key: "C", label: "Felt rushed or flat" },
+      { key: "D", label: "Wish I stopped earlier" },
+    ],
+  },
+  q2: {
+    prompt: "Was this story worth your time?",
+    options: [
+      { key: "A", label: "Absolutely" },
+      { key: "B", label: "Mostly" },
+      { key: "C", label: "Not really" },
+      { key: "D", label: "I want my pops back" },
+    ],
+  },
+} as const;

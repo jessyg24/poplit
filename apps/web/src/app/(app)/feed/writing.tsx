@@ -50,6 +50,10 @@ interface StoryWithScore {
   total_readers: number;
   completion_rate: number;
   rank: number | null;
+  garden_count: number;
+  exitReasons: Record<string, number>;
+  exitAvgSection: number | null;
+  exitTotal: number;
 }
 
 interface Popcycle {
@@ -126,9 +130,38 @@ export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         .order("created_at", { ascending: false });
 
       if (storyData) {
+        const storyIds = storyData.map((s: any) => s.id);
+
+        // Fetch exit surveys for all stories
+        const { data: exits } = await supabase
+          .from("exit_surveys")
+          .select("story_id, section_stopped_at, reason")
+          .in("story_id", storyIds);
+
+        const exitMap: Record<string, { reasons: Record<string, number>; sections: number[]; total: number }> = {};
+        for (const e of exits ?? []) {
+          if (!exitMap[e.story_id]) exitMap[e.story_id] = { reasons: {}, sections: [], total: 0 };
+          const entry = exitMap[e.story_id]!;
+          entry.reasons[e.reason] = (entry.reasons[e.reason] || 0) + 1;
+          entry.sections.push(e.section_stopped_at);
+          entry.total += 1;
+        }
+
+        // Fetch garden counts
+        const { data: gardens } = await supabase
+          .from("poppy_gardens")
+          .select("story_id")
+          .in("story_id", storyIds);
+
+        const gardenMap: Record<string, number> = {};
+        for (const g of gardens ?? []) {
+          gardenMap[g.story_id] = (gardenMap[g.story_id] || 0) + 1;
+        }
+
         setStories(
           storyData.map((s: any) => {
             const score = s.scores?.[0] ?? null;
+            const exit = exitMap[s.id];
             return {
               id: s.id,
               title: s.title,
@@ -139,6 +172,10 @@ export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
               total_readers: score?.total_readers ?? 0,
               completion_rate: score?.completion_rate ?? 0,
               rank: score?.rank ?? null,
+              garden_count: gardenMap[s.id] ?? 0,
+              exitReasons: exit?.reasons ?? {},
+              exitAvgSection: exit ? exit.sections.reduce((a: number, b: number) => a + b, 0) / exit.sections.length : null,
+              exitTotal: exit?.total ?? 0,
             };
           })
         );
@@ -477,7 +514,32 @@ function OverviewTab({
                     {(story.completion_rate * 100).toFixed(0)}% completion
                   </span>
                   {story.rank !== null && <span>Rank #{story.rank}</span>}
+                  {story.garden_count > 0 && (
+                    <span className="text-green-600 font-semibold">
+                      🌻 {story.garden_count} garden{story.garden_count !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
+                {story.exitTotal > 0 && (
+                  <div className="mt-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/30 text-xs">
+                    <p className="text-red-600 dark:text-red-400 font-semibold">
+                      {story.exitTotal} reader{story.exitTotal !== 1 ? "s" : ""} stopped early
+                      {story.exitAvgSection !== null && ` (avg section ${story.exitAvgSection.toFixed(1)})`}
+                    </p>
+                    <p className="mt-0.5 text-slate-500">
+                      {Object.entries(story.exitReasons)
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                        .map(([key, count]) => {
+                          const labels: Record<string, string> = {
+                            A: "not my taste", B: "lost interest", C: "pacing",
+                            D: "writing quality", E: "busy", F: "content warning",
+                          };
+                          return `${count} ${labels[key] || key}`;
+                        })
+                        .join(" · ")}
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

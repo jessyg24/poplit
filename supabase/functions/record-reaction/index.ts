@@ -7,6 +7,12 @@ const CORS_HEADERS = {
 };
 
 const MAX_REACTIONS_PER_READER = 10;
+const OVERLAP_CHARS = 50;
+const TIER1_COUNT = 3;
+const TIER1_MULTIPLIER = 1.25;
+const TIER2_COUNT = 5;
+const TIER2_MULTIPLIER = 1.50;
+const RE_READ_BONUS_PER = 0.3;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -48,12 +54,12 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { story_id, section, start_offset, end_offset, reaction_type, text_snippet } = await req.json();
+    const { story_id, section, start_offset, end_offset, text_snippet } = await req.json();
 
-    // Validate required fields
-    if (!story_id || !section || start_offset == null || end_offset == null || !reaction_type) {
+    // Validate required fields (reaction_type is always "up" now)
+    if (!story_id || !section || start_offset == null || end_offset == null) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: story_id, section, start_offset, end_offset, reaction_type" }),
+        JSON.stringify({ error: "Missing required fields: story_id, section, start_offset, end_offset" }),
         { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
       );
     }
@@ -65,16 +71,9 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (reaction_type !== "up" && reaction_type !== "down") {
-      return new Response(JSON.stringify({ error: "reaction_type must be 'up' or 'down'" }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
-    }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify reader has read this section (has a pop record)
+    // Verify reader has read this section
     const { data: pop } = await supabase
       .from("pops")
       .select("id")
@@ -90,7 +89,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Enforce max 10 reactions per reader per story
+    // Enforce max reactions per reader per story
     const { count } = await supabase
       .from("reactions")
       .select("id", { count: "exact", head: true })
@@ -104,7 +103,24 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Insert reaction
+    // Calculate convergence bonus — count overlapping reactions in same section
+    const { data: nearby } = await supabase
+      .from("reactions")
+      .select("id, start_offset")
+      .eq("story_id", story_id)
+      .eq("section", section)
+      .gte("start_offset", start_offset - OVERLAP_CHARS)
+      .lte("start_offset", start_offset + OVERLAP_CHARS);
+
+    const overlapCount = (nearby ?? []).length;
+    let convergenceMultiplier = 1.0;
+    if (overlapCount >= TIER2_COUNT) {
+      convergenceMultiplier = TIER2_MULTIPLIER;
+    } else if (overlapCount >= TIER1_COUNT) {
+      convergenceMultiplier = TIER1_MULTIPLIER;
+    }
+
+    // Insert reaction (up-only)
     const { data: reaction, error: insertError } = await supabase
       .from("reactions")
       .insert({
@@ -113,8 +129,9 @@ Deno.serve(async (req: Request) => {
         section,
         start_offset,
         end_offset,
-        reaction_type,
+        reaction_type: "up",
         text_snippet: (text_snippet ?? "").slice(0, 500),
+        convergence_multiplier: convergenceMultiplier,
       })
       .select()
       .single();
@@ -126,36 +143,52 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Get reader's multiplier for weighted reaction scoring
-    const { data: readerStats } = await supabase
-      .from("reader_stats")
-      .select("multiplier")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    // Recalculate full reaction_score for this story
+    const { data: allReactions } = await supabase
+      .from("reactions")
+      .select("convergence_multiplier")
+      .eq("story_id", story_id);
 
-    const readerMultiplier = readerStats?.multiplier ?? 1.0;
-    const reactionValue = reaction_type === "up" ? readerMultiplier : -readerMultiplier;
+    const reactionScore = (allReactions ?? []).reduce(
+      (sum: number, r: { convergence_multiplier: number }) => sum + (r.convergence_multiplier ?? 1.0),
+      0,
+    );
 
-    // Update scores.reaction_score
-    const { data: currentScore } = await supabase
+    // Recalc raw_score
+    const { data: pops } = await supabase
+      .from("pops")
+      .select("weighted_value")
+      .eq("story_id", story_id);
+    const popSum = (pops ?? []).reduce(
+      (sum: number, p: { weighted_value: number }) => sum + p.weighted_value,
+      0,
+    );
+
+    const { data: scores } = await supabase
       .from("scores")
-      .select("reaction_score")
+      .select("id, re_read_count, garden_boost")
       .eq("story_id", story_id)
       .maybeSingle();
 
-    if (currentScore) {
+    const reReadCount = scores?.re_read_count ?? 0;
+    const gardenBoost = scores?.garden_boost ?? 1.0;
+    const rawScore = (popSum * gardenBoost) + reactionScore + (reReadCount * RE_READ_BONUS_PER);
+
+    if (scores) {
       await supabase
         .from("scores")
         .update({
-          reaction_score: (currentScore.reaction_score ?? 0) + reactionValue,
+          reaction_score: reactionScore,
+          raw_score: rawScore,
           updated_at: new Date().toISOString(),
         })
-        .eq("story_id", story_id);
+        .eq("id", scores.id);
     }
 
     return new Response(
       JSON.stringify({
         reaction,
+        convergence_multiplier: convergenceMultiplier,
         reactions_remaining: MAX_REACTIONS_PER_READER - ((count ?? 0) + 1),
       }),
       { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },

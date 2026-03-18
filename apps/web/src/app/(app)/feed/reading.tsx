@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { StoryBubbleCanvas, type StoryBubbleData } from "@/components/ui/story-bubble";
 import { SectionPopBarrier } from "@/components/ui/section-pop-barrier";
 import { useModeStore } from "@/stores/mode";
-import { MIN_READ_TIME_MS } from "@poplit/core/constants";
+import { MIN_READ_TIME_MS, ENDING_SURVEY_QUESTIONS, EXIT_SURVEY_REASONS } from "@poplit/core/constants";
 import { colors } from "@poplit/ui";
 
 const genreColors = colors.genre as Record<string, string>;
@@ -37,7 +37,7 @@ interface ReactionRecord {
   section: number;
   start_offset: number;
   end_offset: number;
-  reaction_type: "up" | "down";
+  reaction_type: "up";
   text_snippet: string;
 }
 
@@ -75,6 +75,20 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     endOffset: number;
     snippet: string;
   } | null>(null);
+
+  // Survey state
+  const [surveyStep, setSurveyStep] = useState<null | "q1" | "q2" | "done">(null);
+  const [q1Answer, setQ1Answer] = useState<string | null>(null);
+  const [surveyLoading, setSurveyLoading] = useState(false);
+
+  // Exit survey state
+  const [showExitSurvey, setShowExitSurvey] = useState(false);
+  const [exitLoading, setExitLoading] = useState(false);
+
+  // Pop-py Garden state
+  const [inGarden, setInGarden] = useState(false);
+  const [gardenCount, setGardenCount] = useState(0);
+  const [gardenLoading, setGardenLoading] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -178,7 +192,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     [],
   );
 
-  // Record a pop and advance section
+  // Record a pop via edge function and advance section
   const handleSectionPop = useCallback(async () => {
     if (!activeStory || !userId) return;
 
@@ -186,13 +200,28 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     const sectionToRecord = currentSection + 1; // 1-indexed
 
     if (readDuration >= MIN_READ_TIME_MS && !poppedSections.has(sectionToRecord)) {
-      await supabase.from("pops").insert({
-        reader_id: userId,
-        story_id: activeStory.id,
-        section_opened: sectionToRecord,
-        weighted_value: 1,
-        read_duration_ms: readDuration,
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        try {
+          await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/score-pop`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                story_id: activeStory.id,
+                section_opened: sectionToRecord,
+                read_duration_ms: readDuration,
+              }),
+            },
+          );
+        } catch {
+          // Pop is best-effort
+        }
+      }
       setPoppedSections((prev) => new Set([...prev, sectionToRecord]));
     }
 
@@ -200,18 +229,24 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
 
     if (currentSection >= 4) {
       setCompleted(true);
+      setSurveyStep("q1");
     } else {
       setCurrentSection((prev) => prev + 1);
     }
   }, [activeStory, userId, currentSection, poppedSections, supabase]);
 
-  // Go back to feed from reader
+  // Go back to feed from reader — show exit survey if mid-story
   const handleBackToFeed = useCallback(() => {
-    setActiveStory(null);
-    setCompleted(false);
-    // Advance to next story
-    setCurrentIndex((prev) => (prev + 1) % Math.max(stories.length, 1));
-  }, [stories.length]);
+    const readCount = poppedSections.size;
+    if (readCount >= 1 && readCount < 5) {
+      setShowExitSurvey(true);
+    } else {
+      setActiveStory(null);
+      setCompleted(false);
+      setSurveyStep(null);
+      setCurrentIndex((prev) => (prev + 1) % Math.max(stories.length, 1));
+    }
+  }, [stories.length, poppedSections]);
 
   // Handle next story after completion
   const handleNextStory = useCallback(() => {
@@ -241,9 +276,9 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     });
   }, [activeStory, currentSection, reactionsRemaining]);
 
-  // Submit a reaction
+  // Submit a reaction (up-only)
   const submitReaction = useCallback(
-    async (type: "up" | "down") => {
+    async (type: "up") => {
       if (!reactionToolbar || !activeStory || !userId) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -294,6 +329,107 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
       setReactionsRemaining(10 - (data?.length ?? 0));
     })();
   }, [activeStory?.id, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ending survey handler
+  const handleSurveyAnswer = useCallback(
+    async (question: "q1" | "q2", answer: string) => {
+      if (question === "q1") {
+        setQ1Answer(answer);
+        setSurveyStep("q2");
+      } else {
+        setSurveyLoading(true);
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && activeStory) {
+            await fetch(
+              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/record-survey`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  story_id: activeStory.id,
+                  q1_answer: q1Answer,
+                  q2_answer: answer,
+                }),
+              },
+            );
+          }
+        } catch {
+          // Survey is best-effort
+        }
+        setSurveyLoading(false);
+        setSurveyStep("done");
+      }
+    },
+    [supabase, activeStory, q1Answer],
+  );
+
+  // Exit survey handler
+  const handleExitReason = useCallback(
+    async (reason: string) => {
+      setExitLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && activeStory) {
+          await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/record-exit-survey`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                story_id: activeStory.id,
+                section_stopped_at: Math.max(...poppedSections),
+                reason,
+              }),
+            },
+          );
+        }
+      } catch {
+        // Exit survey is best-effort
+      }
+      setExitLoading(false);
+      setShowExitSurvey(false);
+      setActiveStory(null);
+      setCompleted(false);
+      setCurrentIndex((prev) => (prev + 1) % Math.max(stories.length, 1));
+    },
+    [supabase, activeStory, poppedSections, stories.length],
+  );
+
+  // Pop-py Garden toggle
+  const handleGardenToggle = useCallback(async () => {
+    if (gardenLoading || !activeStory || !userId) return;
+    setGardenLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      if (inGarden) {
+        await supabase
+          .from("poppy_gardens")
+          .delete()
+          .eq("reader_id", userId)
+          .eq("story_id", activeStory.id);
+        setInGarden(false);
+        setGardenCount((c) => Math.max(0, c - 1));
+      } else {
+        await supabase
+          .from("poppy_gardens")
+          .insert({ reader_id: userId, story_id: activeStory.id });
+        setInGarden(true);
+        setGardenCount((c) => c + 1);
+      }
+    } catch {
+      // Garden is best-effort
+    }
+    setGardenLoading(false);
+  }, [gardenLoading, activeStory, userId, inGarden, supabase]);
 
   // Logout
   const handleLogout = useCallback(async () => {
@@ -414,6 +550,47 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                         color={genreColor}
                         onPop={handleSectionPop}
                       />
+                    ) : surveyStep === "q1" ? (
+                      <div className="space-y-4 max-w-md mx-auto">
+                        <p className="text-lg font-bold text-slate-800 dark:text-white">
+                          {ENDING_SURVEY_QUESTIONS.q1.prompt}
+                        </p>
+                        <div className="space-y-2">
+                          {ENDING_SURVEY_QUESTIONS.q1.options.map((opt) => (
+                            <button
+                              key={opt.key}
+                              onClick={() => handleSurveyAnswer("q1", opt.key)}
+                              className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-orange-400 transition-colors text-sm"
+                            >
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold mr-3">
+                                {opt.key}
+                              </span>
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : surveyStep === "q2" ? (
+                      <div className="space-y-4 max-w-md mx-auto">
+                        <p className="text-lg font-bold text-slate-800 dark:text-white">
+                          {ENDING_SURVEY_QUESTIONS.q2.prompt}
+                        </p>
+                        <div className="space-y-2">
+                          {ENDING_SURVEY_QUESTIONS.q2.options.map((opt) => (
+                            <button
+                              key={opt.key}
+                              onClick={() => handleSurveyAnswer("q2", opt.key)}
+                              disabled={surveyLoading}
+                              className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-orange-400 transition-colors text-sm disabled:opacity-50"
+                            >
+                              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold mr-3">
+                                {opt.key}
+                              </span>
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ) : (
                       <div className="space-y-4">
                         <div className="text-4xl">🎉</div>
@@ -423,6 +600,22 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                         <p className="text-slate-500 text-sm">
                           Thanks for reading &ldquo;{activeStory.title}&rdquo;
                         </p>
+                        <button
+                          onClick={handleGardenToggle}
+                          disabled={gardenLoading}
+                          className={`mt-2 px-6 py-2.5 rounded-full font-semibold text-sm transition-colors ${
+                            inGarden
+                              ? "bg-green-500 text-white hover:bg-green-600"
+                              : "bg-white dark:bg-slate-800 border-2 border-orange-400 text-orange-600 hover:bg-orange-50"
+                          }`}
+                        >
+                          {gardenLoading ? "..." : inGarden ? "🌱 In your Pop-py Garden" : "🌻 Add to Pop-py Garden"}
+                        </button>
+                        {gardenCount > 0 && (
+                          <p className="text-xs text-green-600">
+                            In {gardenCount} garden{gardenCount !== 1 ? "s" : ""}
+                          </p>
+                        )}
                         <button
                           onClick={handleNextStory}
                           className="mt-4 px-8 py-3 rounded-full bg-orange-500 text-white font-semibold hover:bg-orange-600 transition-colors"
@@ -443,6 +636,41 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
           })}
         </div>
 
+        {/* Exit survey overlay */}
+        {showExitSurvey && (
+          <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+                Why did you stop reading?
+              </h3>
+              <p className="text-xs text-slate-400">Your feedback helps writers improve</p>
+              <div className="space-y-2">
+                {EXIT_SURVEY_REASONS.map((r) => (
+                  <button
+                    key={r.key}
+                    onClick={() => handleExitReason(r.key)}
+                    disabled={exitLoading}
+                    className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-orange-400 transition-colors text-sm disabled:opacity-50"
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => {
+                  setShowExitSurvey(false);
+                  setActiveStory(null);
+                  setCompleted(false);
+                  setCurrentIndex((prev) => (prev + 1) % Math.max(stories.length, 1));
+                }}
+                className="w-full text-center text-sm text-slate-400 hover:text-slate-600 underline"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Reaction toolbar (floating) */}
         {reactionToolbar && (
           <div
@@ -459,13 +687,6 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
               title="Like this passage"
             >
               👍
-            </button>
-            <button
-              onClick={() => submitReaction("down")}
-              className="px-2 py-1 rounded-full text-lg hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
-              title="Dislike this passage"
-            >
-              👎
             </button>
             <button
               onClick={() => {

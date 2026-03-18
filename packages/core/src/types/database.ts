@@ -163,6 +163,9 @@ export interface Database {
           section_5_reads: number;
           completion_rate: number;
           reaction_score: number;
+          re_read_count: number;
+          garden_count: number;
+          garden_boost: number;
           rank: number | null;
           created_at: string;
           updated_at: string;
@@ -382,8 +385,9 @@ export interface Database {
           section: number;
           start_offset: number;
           end_offset: number;
-          reaction_type: "up" | "down";
+          reaction_type: "up";
           text_snippet: string;
+          convergence_multiplier: number;
           created_at: string;
         };
         Insert: Omit<Database["public"]["Tables"]["reactions"]["Row"], "id" | "created_at"> & {
@@ -391,6 +395,59 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["reactions"]["Insert"]>;
+      };
+      survey_responses: {
+        Row: {
+          id: string;
+          reader_id: string;
+          story_id: string;
+          q1_answer: string;
+          q2_answer: string;
+          decay_applied: number;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["survey_responses"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["survey_responses"]["Insert"]>;
+      };
+      exit_surveys: {
+        Row: {
+          id: string;
+          reader_id: string;
+          story_id: string;
+          section_stopped_at: number;
+          reason: string;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["exit_surveys"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["exit_surveys"]["Insert"]>;
+      };
+      reader_stats: {
+        Row: {
+          user_id: string;
+          multiplier: number;
+          updated_at: string;
+        };
+        Insert: Database["public"]["Tables"]["reader_stats"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["reader_stats"]["Insert"]>;
+      };
+      poppy_gardens: {
+        Row: {
+          id: string;
+          reader_id: string;
+          story_id: string;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["poppy_gardens"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["poppy_gardens"]["Insert"]>;
       };
       rankings: {
         Row: {
@@ -460,3 +517,7 @@ export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 export type Reaction = Database["public"]["Tables"]["reactions"]["Row"];
 export type Ranking = Database["public"]["Tables"]["rankings"]["Row"];
+export type SurveyResponse = Database["public"]["Tables"]["survey_responses"]["Row"];
+export type ExitSurvey = Database["public"]["Tables"]["exit_surveys"]["Row"];
+export type ReaderStats = Database["public"]["Tables"]["reader_stats"]["Row"];
+export type PoppyGarden = Database["public"]["Tables"]["poppy_gardens"]["Row"];
