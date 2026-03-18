@@ -208,7 +208,7 @@ Deno.serve(async (req: Request) => {
       results.push({
         popcycle_id: cycle.id,
         stories_ranked: rankings.length,
-        winners: winners.map((w) => ({
+        winners: cashWinners.map((w) => ({
           rank: w.rank,
           story_id: w.story_id,
           score: w.raw_score,

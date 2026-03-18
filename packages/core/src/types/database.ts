@@ -72,6 +72,9 @@ export interface Database {
           ai_score: number | null;
           ai_flagged: boolean;
           ai_review_note: string | null;
+          ai_assisted: boolean;
+          ai_disclaimer: boolean;
+          ai_disclaimer_source: "self_disclosed" | "auto_flagged" | null;
           payment_intent_id: string | null;
           published_at: string | null;
           created_at: string;
@@ -84,6 +87,9 @@ export interface Database {
           ai_score?: number | null;
           ai_flagged?: boolean;
           ai_review_note?: string | null;
+          ai_assisted?: boolean;
+          ai_disclaimer?: boolean;
+          ai_disclaimer_source?: "self_disclosed" | "auto_flagged" | null;
           published_at?: string | null;
           status?: StoryStatus;
         };
@@ -156,6 +162,7 @@ export interface Database {
           section_4_reads: number;
           section_5_reads: number;
           completion_rate: number;
+          reaction_score: number;
           rank: number | null;
           created_at: string;
           updated_at: string;
@@ -367,6 +374,41 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
       };
+      reactions: {
+        Row: {
+          id: string;
+          reader_id: string;
+          story_id: string;
+          section: number;
+          start_offset: number;
+          end_offset: number;
+          reaction_type: "up" | "down";
+          text_snippet: string;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["reactions"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["reactions"]["Insert"]>;
+      };
+      rankings: {
+        Row: {
+          id: string;
+          popcycle_id: string;
+          story_id: string;
+          author_id: string;
+          rank: number;
+          prize_amount: number;
+          raw_score: number;
+          created_at: string;
+        };
+        Insert: Omit<Database["public"]["Tables"]["rankings"]["Row"], "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["rankings"]["Insert"]>;
+      };
       platform_settings: {
         Row: {
           id: string;
@@ -416,3 +458,5 @@ export type FeatureBubble = Database["public"]["Tables"]["feature_bubbles"]["Row
 export type FeaturePoke = Database["public"]["Tables"]["feature_pokes"]["Row"];
 export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
+export type Reaction = Database["public"]["Tables"]["reactions"]["Row"];
+export type Ranking = Database["public"]["Tables"]["rankings"]["Row"];

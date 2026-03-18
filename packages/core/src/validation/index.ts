@@ -48,6 +48,7 @@ export const storySubmissionSchema = z.object({
       { message: `Story must be at most ${STORY_LIMITS.maxWords} words` },
     ),
   popcycle_id: z.string().uuid(),
+  ai_assisted: z.boolean().default(false),
 });
 
 // Comment

@@ -9,13 +9,13 @@ export const SCORING_WEIGHTS = {
   multiplierCeiling: 1.10,
 } as const;
 
-// Section weights for pop scoring
+// Section weights for pop scoring (steeper curve rewards deep reading)
 export const SECTION_WEIGHTS = {
   1: 1.0,
-  2: 1.2,
-  3: 1.4,
-  4: 1.6,
-  5: 2.0,
+  2: 1.3,
+  3: 1.7,
+  4: 2.2,
+  5: 3.0,
 } as const;
 
 // Minimum read time (ms) per section to count as a valid pop
@@ -132,5 +132,18 @@ export const RATE_LIMITS = {
   submissionsPerPopcycle: 1,
 } as const;
 
-// AI detection threshold
-export const AI_DETECTION_THRESHOLD = 0.85;
+// AI detection threshold (≥65% flags as AI-generated)
+export const AI_DETECTION_THRESHOLD = 0.65;
+
+// Past winner boost: readers who won previous Popoff get up to +15% (decays linearly over popcycle)
+export const PAST_WINNER_BOOST_MAX = 0.15;
+
+// Time quality factor: scales from 1.00 at 15s to 1.10 at 120s, capped there
+export const TIME_QUALITY_MAX_BONUS = 0.10;
+export const TIME_QUALITY_CAP_MS = 120_000;
+
+// Completion bonus: when reader finishes all 5 sections, retroactively multiply all their pops ×1.15
+export const COMPLETION_BONUS = 1.15;
+
+// Max inline text reactions per reader per story
+export const MAX_REACTIONS_PER_READER = 10;

@@ -6,7 +6,7 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const AI_DETECTION_THRESHOLD = 0.85;
+const AI_DETECTION_THRESHOLD = 0.65;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
     // Fetch story content (all 5 sections)
     const { data: story, error: storyError } = await supabase
       .from("stories")
-      .select("id, section_1, section_2, section_3, section_4, section_5, author_id")
+      .select("id, section_1, section_2, section_3, section_4, section_5, author_id, ai_assisted, ai_disclaimer")
       .eq("id", story_id)
       .single();
 
@@ -119,16 +119,29 @@ Deno.serve(async (req: Request) => {
 
     const gptzeroResult = await gptzeroResponse.json();
     const aiScore: number = gptzeroResult?.documents?.[0]?.completely_generated_prob ?? 0;
-    const aiFlagged = aiScore > AI_DETECTION_THRESHOLD;
+    const aiFlagged = aiScore >= AI_DETECTION_THRESHOLD;
+
+    // Build update payload
+    const updatePayload: Record<string, unknown> = {
+      ai_score: aiScore,
+      ai_flagged: aiFlagged,
+      ai_checked_at: new Date().toISOString(),
+    };
+
+    // If auto-flagged AND writer did NOT self-disclose, apply penalty (halve pops)
+    // NOTE: ai_disclaimer is NOT set here — admin has final say on the public badge.
+    // We only record the source so admin can see context.
+    const autoFlagged = aiFlagged && !story.ai_assisted;
+    if (autoFlagged) {
+      updatePayload.ai_disclaimer_source = "auto_flagged";
+    } else if (story.ai_assisted && !story.ai_disclaimer_source) {
+      updatePayload.ai_disclaimer_source = "self_disclosed";
+    }
 
     // Update story with AI detection results
     const { error: updateError } = await supabase
       .from("stories")
-      .update({
-        ai_score: aiScore,
-        ai_flagged: aiFlagged,
-        ai_checked_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", story_id);
 
     if (updateError) {
@@ -138,11 +151,50 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Penalty: halve all prior pops and recalculate score when auto-flagged
+    let popsHalved = 0;
+    if (autoFlagged) {
+      // Halve all existing pop weighted_values for this story
+      const { data: existingPops } = await supabase
+        .from("pops")
+        .select("id, weighted_value")
+        .eq("story_id", story_id);
+
+      if (existingPops && existingPops.length > 0) {
+        for (const pop of existingPops) {
+          await supabase
+            .from("pops")
+            .update({ weighted_value: pop.weighted_value * 0.5 })
+            .eq("id", pop.id);
+        }
+        popsHalved = existingPops.length;
+
+        // Recalculate raw_score from halved pops
+        const { data: updatedPops } = await supabase
+          .from("pops")
+          .select("weighted_value")
+          .eq("story_id", story_id);
+
+        const newRawScore = (updatedPops ?? []).reduce(
+          (sum: number, p: { weighted_value: number }) => sum + p.weighted_value,
+          0,
+        );
+
+        await supabase
+          .from("scores")
+          .update({ raw_score: newRawScore, updated_at: new Date().toISOString() })
+          .eq("story_id", story_id);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         story_id,
         ai_score: aiScore,
         ai_flagged: aiFlagged,
+        auto_flagged: autoFlagged,
+        self_disclosed: story.ai_assisted,
+        pops_halved: popsHalved,
         threshold: AI_DETECTION_THRESHOLD,
       }),
       { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },

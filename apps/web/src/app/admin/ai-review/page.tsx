@@ -10,7 +10,7 @@ export default async function AiReviewPage() {
 
   const { data: stories, error } = await admin
     .from("stories")
-    .select("id, title, ai_score, ai_review_note, status, author_id, created_at")
+    .select("id, title, ai_score, ai_review_note, status, author_id, created_at, ai_assisted, ai_disclaimer, ai_disclaimer_source")
     .eq("ai_flagged", true)
     .order("created_at", { ascending: false });
 
@@ -48,13 +48,26 @@ export default async function AiReviewPage() {
                     by {authorMap[story.author_id] ?? "Unknown"} &middot; {formatDate(story.created_at)}
                   </p>
                 </div>
-                <div className="text-right">
+                <div className="text-right space-y-1">
                   <span className="inline-block rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
                     AI Score: {story.ai_score !== null ? (story.ai_score * 100).toFixed(0) + "%" : "N/A"}
                   </span>
-                  <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                  <p className="text-xs text-[var(--color-text-secondary)]">
                     Status: {story.status.replace(/_/g, " ")}
                   </p>
+                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    story.ai_disclaimer_source === "self_disclosed"
+                      ? "bg-green-100 text-green-700"
+                      : story.ai_disclaimer_source === "auto_flagged"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-100 text-slate-500"
+                  }`}>
+                    {story.ai_disclaimer_source === "self_disclosed"
+                      ? "Self-Disclosed"
+                      : story.ai_disclaimer_source === "auto_flagged"
+                        ? "Auto-Flagged (pops halved)"
+                        : "No Disclosure"}
+                  </span>
                 </div>
               </div>
 
@@ -64,7 +77,7 @@ export default async function AiReviewPage() {
                 </p>
               )}
 
-              <AiReviewActions storyId={story.id} currentStatus={story.status} />
+              <AiReviewActions storyId={story.id} currentStatus={story.status} aiDisclaimer={story.ai_disclaimer ?? false} />
             </div>
           ))}
         </div>

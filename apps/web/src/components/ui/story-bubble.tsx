@@ -13,6 +13,7 @@ export interface StoryBubbleData {
   hook: string;
   prompt?: string;
   authorPenName: string;
+  aiDisclaimer?: boolean;
 }
 
 interface BubbleState {
@@ -363,6 +364,11 @@ export function StoryBubbleCanvas({ story, onPop, onSwipeAway }: StoryBubbleCanv
           >
             {story.genre}
           </span>
+          {story.aiDisclaimer && (
+            <span className="inline-block mt-1 ml-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-400/90 text-amber-900">
+              AI-Assisted
+            </span>
+          )}
           {story.triggers.length > 0 && (
             <div className="flex gap-1 justify-center mt-1.5 flex-wrap">
               {story.triggers.map((tw) => (

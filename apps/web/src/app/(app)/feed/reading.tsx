@@ -24,11 +24,21 @@ interface StoryRow {
   section_4: string;
   section_5: string;
   author_id: string;
+  ai_disclaimer: boolean;
   users: {
     pen_name: string;
     real_name: string | null;
     avatar_url: string | null;
   } | null;
+}
+
+interface ReactionRecord {
+  id: string;
+  section: number;
+  start_offset: number;
+  end_offset: number;
+  reaction_type: "up" | "down";
+  text_snippet: string;
 }
 
 interface InProgressStory {
@@ -53,6 +63,18 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
   const [loading, setLoading] = useState(true);
   const sectionStartRef = useRef(Date.now());
   const [loggingOut, setLoggingOut] = useState(false);
+
+  // Reaction state
+  const [reactions, setReactions] = useState<ReactionRecord[]>([]);
+  const [reactionsRemaining, setReactionsRemaining] = useState(10);
+  const [reactionToolbar, setReactionToolbar] = useState<{
+    x: number;
+    y: number;
+    section: number;
+    startOffset: number;
+    endOffset: number;
+    snippet: string;
+  } | null>(null);
 
   // Load data
   useEffect(() => {
@@ -117,6 +139,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         triggers: currentStory.triggers ?? [],
         hook: currentStory.hook,
         authorPenName: currentStory.users?.pen_name ?? "unknown",
+        aiDisclaimer: currentStory.ai_disclaimer ?? false,
       }
     : null;
 
@@ -197,6 +220,81 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     setCurrentIndex((prev) => (prev + 1) % Math.max(stories.length, 1));
   }, [stories.length]);
 
+  // Handle text selection for reactions
+  const handleTextSelect = useCallback(() => {
+    if (!activeStory || reactionsRemaining <= 0) return;
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+      setReactionToolbar(null);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const sectionIndex = currentSection + 1; // 1-indexed
+    setReactionToolbar({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10,
+      section: sectionIndex,
+      startOffset: range.startOffset,
+      endOffset: range.endOffset,
+      snippet: sel.toString().slice(0, 200),
+    });
+  }, [activeStory, currentSection, reactionsRemaining]);
+
+  // Submit a reaction
+  const submitReaction = useCallback(
+    async (type: "up" | "down") => {
+      if (!reactionToolbar || !activeStory || !userId) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/record-reaction`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              story_id: activeStory.id,
+              section: reactionToolbar.section,
+              start_offset: reactionToolbar.startOffset,
+              end_offset: reactionToolbar.endOffset,
+              reaction_type: type,
+              text_snippet: reactionToolbar.snippet,
+            }),
+          },
+        );
+        const result = await res.json();
+        if (res.ok && result.reaction) {
+          setReactions((prev) => [...prev, result.reaction]);
+          setReactionsRemaining(result.reactions_remaining);
+        }
+      } catch {
+        // Silently fail — reaction is non-critical
+      }
+      setReactionToolbar(null);
+      window.getSelection()?.removeAllRanges();
+    },
+    [reactionToolbar, activeStory, userId, supabase],
+  );
+
+  // Load existing reactions when opening a story
+  useEffect(() => {
+    if (!activeStory || !userId) return;
+    (async () => {
+      const { data } = await supabase
+        .from("reactions")
+        .select("id, section, start_offset, end_offset, reaction_type, text_snippet")
+        .eq("story_id", activeStory.id)
+        .eq("reader_id", userId);
+      setReactions((data ?? []) as ReactionRecord[]);
+      setReactionsRemaining(10 - (data?.length ?? 0));
+    })();
+  }, [activeStory?.id, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Logout
   const handleLogout = useCallback(async () => {
     setLoggingOut(true);
@@ -249,6 +347,11 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
             >
               {activeStory.genre}
             </span>
+            {activeStory.ai_disclaimer && (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-300">
+                AI-Assisted
+              </span>
+            )}
             {activeStory.triggers?.map((tw: string) => (
               <span
                 key={tw}
@@ -283,7 +386,11 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                   </span>
                 </div>
 
-                <div className="prose prose-slate dark:prose-invert max-w-none whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-slate-300 mb-6">
+                <div
+                  className="prose prose-slate dark:prose-invert max-w-none whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-slate-300 mb-6"
+                  onMouseUp={handleTextSelect}
+                  onTouchEnd={handleTextSelect}
+                >
                   {section}
                 </div>
 
@@ -335,6 +442,49 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
             );
           })}
         </div>
+
+        {/* Reaction toolbar (floating) */}
+        {reactionToolbar && (
+          <div
+            className="fixed z-50 flex items-center gap-1 rounded-full bg-white dark:bg-slate-800 shadow-lg border border-slate-200 dark:border-slate-700 px-2 py-1"
+            style={{
+              left: Math.max(60, Math.min(reactionToolbar.x, window.innerWidth - 60)),
+              top: Math.max(40, reactionToolbar.y - 44),
+              transform: "translateX(-50%)",
+            }}
+          >
+            <button
+              onClick={() => submitReaction("up")}
+              className="px-2 py-1 rounded-full text-lg hover:bg-green-50 dark:hover:bg-green-950 transition-colors"
+              title="Like this passage"
+            >
+              👍
+            </button>
+            <button
+              onClick={() => submitReaction("down")}
+              className="px-2 py-1 rounded-full text-lg hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+              title="Dislike this passage"
+            >
+              👎
+            </button>
+            <button
+              onClick={() => {
+                setReactionToolbar(null);
+                window.getSelection()?.removeAllRanges();
+              }}
+              className="px-1.5 py-0.5 rounded-full text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Reactions remaining counter */}
+        {reactionsRemaining < 10 && (
+          <div className="fixed bottom-4 right-4 z-40 rounded-full bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-500">
+            {reactionsRemaining} reaction{reactionsRemaining !== 1 ? "s" : ""} remaining
+          </div>
+        )}
       </div>
     );
   }

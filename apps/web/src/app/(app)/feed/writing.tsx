@@ -824,6 +824,22 @@ function SubmitTab({
 
           <input type="hidden" {...register("popcycle_id")} />
 
+          {/* AI-Assisted Disclosure */}
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <input
+              id="w-ai-assisted"
+              type="checkbox"
+              {...register("ai_assisted")}
+              className="mt-0.5 accent-amber-600 w-4 h-4"
+            />
+            <label htmlFor="w-ai-assisted" className="text-sm text-slate-700 cursor-pointer">
+              <span className="font-semibold text-amber-700">AI-Assisted</span>
+              <span className="block mt-0.5 text-xs text-slate-500">
+                Check this if AI tools were used in writing this story. Self-disclosure carries no scoring penalty — honesty is rewarded. Stories detected as AI-generated without disclosure will have prior pops halved.
+              </span>
+            </label>
+          </div>
+
           {/* Submit */}
           <button
             type="submit"
