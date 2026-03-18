@@ -58,10 +58,14 @@ export default function SignupPage() {
   async function handleOAuth(provider: OAuthProvider) {
     setServerError(null);
     setOauthLoading(provider);
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+    if (inviteCode.trim()) {
+      callbackUrl.searchParams.set("ref", inviteCode.trim().toUpperCase());
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl.toString(),
       },
     });
     if (error) {
