@@ -30,7 +30,7 @@ export interface Database {
           id: string;
           email: string;
           pen_name: string;
-          display_name: string | null;
+          real_name: string | null;
           bio: string | null;
           avatar_url: string | null;
           role: UserRole;

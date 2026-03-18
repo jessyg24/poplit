@@ -3,7 +3,7 @@ CREATE TABLE users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   pen_name TEXT NOT NULL UNIQUE,
-  display_name TEXT,
+  real_name TEXT,
   bio TEXT,
   avatar_url TEXT,
   role user_role NOT NULL DEFAULT 'reader',

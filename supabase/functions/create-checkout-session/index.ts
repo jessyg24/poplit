@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
     // Get or create Stripe customer
     const { data: profile } = await supabase
       .from("profiles")
-      .select("stripe_customer_id, display_name, email")
+      .select("stripe_customer_id, real_name, email")
       .eq("id", user.id)
       .single();
 
@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
         },
         body: new URLSearchParams({
           email: user.email ?? profile?.email ?? "",
-          name: profile?.display_name ?? "",
+          name: profile?.real_name ?? "",
           "metadata[user_id]": user.id,
         }),
       });

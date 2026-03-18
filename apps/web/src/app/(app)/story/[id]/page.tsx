@@ -23,7 +23,7 @@ export default async function StoryPage({
 
   const author = story.users as {
     pen_name: string;
-    display_name: string | null;
+    real_name: string | null;
     avatar_url: string | null;
   } | null;
 
@@ -116,7 +116,7 @@ export default async function StoryPage({
             )}
             <div>
               <p className="text-sm font-semibold">
-                {author?.display_name ?? author?.pen_name}
+                {author?.pen_name}
               </p>
               <p className="text-xs text-[var(--color-text-secondary)]">
                 @{author?.pen_name}

@@ -20,7 +20,7 @@ export async function updateUserProfile(client: Client, id: string, data: Record
 export async function getPublishedStories(client: Client, popcycleId: string, limit = 20, offset = 0) {
   return client
     .from("stories")
-    .select("*, users!author_id(pen_name, display_name, avatar_url)")
+    .select("*, users!author_id(pen_name, real_name, avatar_url)")
     .eq("popcycle_id", popcycleId)
     .eq("status", "published")
     .range(offset, offset + limit - 1);
@@ -29,7 +29,7 @@ export async function getPublishedStories(client: Client, popcycleId: string, li
 export async function getStoryById(client: Client, id: string) {
   return client
     .from("stories")
-    .select("*, users!author_id(pen_name, display_name, avatar_url), scores(*)")
+    .select("*, users!author_id(pen_name, real_name, avatar_url), scores(*)")
     .eq("id", id)
     .single();
 }
@@ -83,7 +83,7 @@ export async function getReaderPopsForStory(client: Client, readerId: string, st
 export async function getScoresByPopcycle(client: Client, popcycleId: string) {
   return client
     .from("scores")
-    .select("*, stories(title, hook, users!author_id(pen_name, display_name))")
+    .select("*, stories(title, hook, users!author_id(pen_name, real_name))")
     .eq("popcycle_id", popcycleId)
     .order("display_score", { ascending: false });
 }
@@ -98,18 +98,18 @@ export async function unfollowUser(client: Client, followerId: string, following
 }
 
 export async function getFollowers(client: Client, userId: string) {
-  return client.from("follows").select("*, users!follower_id(pen_name, display_name, avatar_url)").eq("following_id", userId);
+  return client.from("follows").select("*, users!follower_id(pen_name, real_name, avatar_url)").eq("following_id", userId);
 }
 
 export async function getFollowing(client: Client, userId: string) {
-  return client.from("follows").select("*, users!following_id(pen_name, display_name, avatar_url)").eq("follower_id", userId);
+  return client.from("follows").select("*, users!following_id(pen_name, real_name, avatar_url)").eq("follower_id", userId);
 }
 
 // Comments
 export async function getCommentsForStory(client: Client, storyId: string) {
   return client
     .from("comments")
-    .select("*, users!user_id(pen_name, display_name, avatar_url)")
+    .select("*, users!user_id(pen_name, real_name, avatar_url)")
     .eq("story_id", storyId)
     .order("created_at", { ascending: true });
 }

@@ -40,7 +40,7 @@ export default function SettingsPage() {
 
     // Filter out undefined/empty fields
     const updates: Record<string, string> = {};
-    if (data.display_name) updates.display_name = data.display_name;
+    if (data.real_name) updates.real_name = data.real_name;
     if (data.bio !== undefined) updates.bio = data.bio ?? "";
     if (data.avatar_url) updates.avatar_url = data.avatar_url;
 
@@ -141,7 +141,7 @@ export default function SettingsPage() {
       .from("users")
       .update({
         pen_name: `deleted_${user.id.slice(0, 8)}`,
-        display_name: "Deleted User",
+        real_name: "Deleted User",
         bio: null,
         avatar_url: null,
         email: `deleted_${user.id}@poplit.local`,
@@ -183,18 +183,21 @@ export default function SettingsPage() {
         <h2 className="text-lg font-bold mb-4">Profile</h2>
         <form onSubmit={handleSubmit(onUpdateProfile)} className="space-y-4">
           <div>
-            <label htmlFor="display_name" className={labelClass}>
-              Display Name
+            <label htmlFor="real_name" className={labelClass}>
+              Real Name
             </label>
             <input
-              id="display_name"
+              id="real_name"
               type="text"
-              {...register("display_name")}
+              {...register("real_name")}
               className={inputClass}
-              placeholder="Your display name"
+              placeholder="Your real name"
             />
-            {errors.display_name && (
-              <p className={errorTextClass}>{errors.display_name.message}</p>
+            <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+              Used for payment and authorship verification. Not shown publicly.
+            </p>
+            {errors.real_name && (
+              <p className={errorTextClass}>{errors.real_name.message}</p>
             )}
           </div>
 

@@ -42,7 +42,7 @@ export default function SignupPage() {
       options: {
         data: {
           pen_name: data.pen_name,
-          display_name: data.display_name ?? data.pen_name,
+          real_name: data.real_name ?? data.pen_name,
           ...(inviteCode.trim() ? { invited_by: inviteCode.trim().toUpperCase() } : {}),
         },
         emailRedirectTo: `${window.location.origin}/auth/confirm`,

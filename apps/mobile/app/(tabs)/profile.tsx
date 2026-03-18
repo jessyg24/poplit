@@ -15,7 +15,7 @@ import { supabase } from "@/lib/supabase";
 
 interface Profile {
   pen_name: string;
-  display_name: string | null;
+  real_name: string | null;
   bio: string | null;
   avatar_url: string | null;
   stories_count: number;
@@ -99,8 +99,8 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={styles.penName}>{profile?.pen_name ?? "Unknown"}</Text>
-        {profile?.display_name && (
-          <Text style={styles.displayName}>{profile.display_name}</Text>
+        {profile?.real_name && (
+          <Text style={styles.realName}>{profile.real_name}</Text>
         )}
         {profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
 
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#F3F4F6",
   },
-  displayName: {
+  realName: {
     fontSize: 15,
     color: "#9CA3AF",
     marginTop: 2,

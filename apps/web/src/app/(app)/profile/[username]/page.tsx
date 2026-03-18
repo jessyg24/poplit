@@ -84,7 +84,7 @@ export default async function ProfilePage({
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-xl font-extrabold truncate">
-                  {profile.display_name ?? profile.pen_name}
+                  {profile.pen_name}
                 </h1>
                 <p className="text-sm text-[var(--color-text-secondary)]">
                   @{profile.pen_name}

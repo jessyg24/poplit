@@ -29,7 +29,7 @@ type Tab = "overview" | "submit" | "popoff" | "billing" | "credits" | "settings"
 interface UserProfile {
   id: string;
   pen_name: string;
-  display_name: string | null;
+  real_name: string | null;
   bio: string | null;
   avatar_url: string | null;
   email: string;
@@ -159,7 +159,7 @@ export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         if (popcycleData.status === "popoff" || popcycleData.status === "completed") {
           const { data: scores } = await supabase
             .from("scores")
-            .select("*, stories(title, hook, users!author_id(pen_name, display_name))")
+            .select("*, stories(title, hook, users!author_id(pen_name, real_name))")
             .eq("popcycle_id", popcycleData.id)
             .order("display_score", { ascending: false });
 
@@ -1235,7 +1235,7 @@ function SettingsTab({
   } = useForm<ProfileUpdateInput>({
     resolver: zodResolver(profileUpdateSchema),
     defaultValues: {
-      display_name: user?.display_name ?? "",
+      real_name: user?.real_name ?? "",
       bio: user?.bio ?? "",
       avatar_url: user?.avatar_url ?? "",
     },
@@ -1256,7 +1256,7 @@ function SettingsTab({
     }
 
     const updates: Record<string, string> = {};
-    if (data.display_name) updates.display_name = data.display_name;
+    if (data.real_name) updates.real_name = data.real_name;
     if (data.bio !== undefined) updates.bio = data.bio ?? "";
     if (data.avatar_url) updates.avatar_url = data.avatar_url;
 
@@ -1346,7 +1346,7 @@ function SettingsTab({
       .from("users")
       .update({
         pen_name: `deleted_${user.id.slice(0, 8)}`,
-        display_name: "Deleted User",
+        real_name: "Deleted User",
         bio: null,
         avatar_url: null,
         email: `deleted_${user.id}@poplit.local`,
@@ -1398,18 +1398,21 @@ function SettingsTab({
           </div>
 
           <div>
-            <label htmlFor="s-display-name" className={labelClass}>
-              Display Name
+            <label htmlFor="s-real-name" className={labelClass}>
+              Real Name
             </label>
             <input
-              id="s-display-name"
+              id="s-real-name"
               type="text"
-              {...register("display_name")}
+              {...register("real_name")}
               className={inputClass}
-              placeholder="Your display name"
+              placeholder="Your real name"
             />
-            {errors.display_name && (
-              <p className={errorTextClass}>{errors.display_name.message}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Used for payment and authorship verification. Not shown publicly.
+            </p>
+            {errors.real_name && (
+              <p className={errorTextClass}>{errors.real_name.message}</p>
             )}
           </div>
 

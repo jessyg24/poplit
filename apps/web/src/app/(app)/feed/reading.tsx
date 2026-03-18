@@ -26,7 +26,7 @@ interface StoryRow {
   author_id: string;
   users: {
     pen_name: string;
-    display_name: string | null;
+    real_name: string | null;
     avatar_url: string | null;
   } | null;
 }
@@ -80,7 +80,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
       // Get published stories
       const { data: storyData } = await supabase
         .from("stories")
-        .select("*, users!author_id(pen_name, display_name, avatar_url)")
+        .select("*, users!author_id(pen_name, real_name, avatar_url)")
         .eq("popcycle_id", popcycle.id)
         .eq("status", "published");
 

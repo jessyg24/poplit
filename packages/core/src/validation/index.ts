@@ -13,12 +13,12 @@ export const signupSchema = loginSchema.extend({
     .min(3, "Pen name must be at least 3 characters")
     .max(30, "Pen name must be at most 30 characters")
     .regex(/^[a-zA-Z0-9_-]+$/, "Pen name can only contain letters, numbers, hyphens, and underscores"),
-  display_name: z.string().max(50).optional(),
+  real_name: z.string().max(50).optional(),
   gdpr_consent: z.literal(true, { errorMap: () => ({ message: "You must accept the privacy policy" }) }),
 });
 
 export const onboardingSchema = z.object({
-  display_name: z.string().min(1).max(50),
+  real_name: z.string().min(1).max(50),
   bio: z.string().max(500).optional(),
   avatar_url: z.string().url().optional(),
 });
@@ -97,7 +97,7 @@ export const popcycleSchema = z.object({
 
 // Profile update
 export const profileUpdateSchema = z.object({
-  display_name: z.string().min(1).max(50).optional(),
+  real_name: z.string().min(1).max(50).optional(),
   bio: z.string().max(500).optional(),
   avatar_url: z.string().url().optional(),
 });
