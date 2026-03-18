@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { OverrideScoreButton, RecalculateScoreButton, FlagAnomalyButton } from "./actions";
 
 interface Props {
   searchParams: Promise<{ popcycle?: string }>;
@@ -72,12 +73,6 @@ export default async function ScoresPage({ searchParams }: Props) {
         </div>
       </form>
 
-      {/* Anomaly detection placeholder */}
-      <div className="mb-4 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-700">
-        {/* TODO: Implement anomaly detection - flag scores with unusual patterns */}
-        Anomaly detection: No anomalies detected. (Placeholder - implement statistical outlier detection)
-      </div>
-
       <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
         <table className="w-full text-sm">
           <thead className="bg-[var(--color-surface)] text-left text-[var(--color-text-secondary)]">
@@ -89,32 +84,45 @@ export default async function ScoresPage({ searchParams }: Props) {
               <th className="px-4 py-3 font-medium">Display Score</th>
               <th className="px-4 py-3 font-medium">Readers</th>
               <th className="px-4 py-3 font-medium">Completion</th>
+              <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
             {(scores ?? []).map((score: Record<string, any>) => {
               const story = storyMap[score.story_id];
+              const title = story?.title ?? "Unknown";
               return (
                 <tr key={score.id} className="hover:bg-[var(--color-surface)] transition-colors">
                   <td className="px-4 py-3 font-medium text-[var(--color-text)]">
                     {score.rank ?? "-"}
                   </td>
                   <td className="px-4 py-3 font-medium text-[var(--color-text)]">
-                    {story?.title ?? "Unknown"}
+                    {title}
                   </td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                     {story ? (authorMap[story.author_id] ?? "Unknown") : "Unknown"}
                   </td>
-                  <td className="px-4 py-3 text-[var(--color-text)] font-mono">{score.raw_score.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-[var(--color-text)] font-mono">{score.display_score.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-[var(--color-text)] font-mono">{Number(score.raw_score).toFixed(2)}</td>
+                  <td className="px-4 py-3 text-[var(--color-text)] font-mono">{score.display_score}</td>
                   <td className="px-4 py-3 text-[var(--color-text)]">{score.total_readers}</td>
-                  <td className="px-4 py-3 text-[var(--color-text)]">{(score.completion_rate * 100).toFixed(1)}%</td>
+                  <td className="px-4 py-3 text-[var(--color-text)]">{(Number(score.completion_rate) * 100).toFixed(1)}%</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <OverrideScoreButton
+                        scoreId={score.id}
+                        storyTitle={title}
+                        currentDisplayScore={score.display_score}
+                      />
+                      <RecalculateScoreButton scoreId={score.id} />
+                      <FlagAnomalyButton scoreId={score.id} storyTitle={title} />
+                    </div>
+                  </td>
                 </tr>
               );
             })}
             {(scores ?? []).length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                <td colSpan={8} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
                   No scores for this popcycle yet.
                 </td>
               </tr>

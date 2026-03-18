@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ViewTopStoriesButton, RemoveFromAnthologyButton } from "./actions";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -51,7 +52,7 @@ export default async function AnthologyPage() {
     quarters.set(entry.quarter, list);
   });
 
-  // Get recent completed popcycles with top stories for selection
+  // Get recent completed popcycles for selection
   const { data: completedPc } = await admin
     .from("popcycles")
     .select("id, title")
@@ -74,10 +75,7 @@ export default async function AnthologyPage() {
             {(completedPc ?? []).map((pc) => (
               <div key={pc.id} className="flex items-center justify-between rounded-md bg-[var(--color-background)] p-3">
                 <span className="text-sm font-medium text-[var(--color-text)]">{pc.title}</span>
-                {/* TODO: Implement selection flow - show top stories from this popcycle */}
-                <button className="text-xs text-[var(--color-primary)] hover:underline">
-                  View Top Stories
-                </button>
+                <ViewTopStoriesButton popcycleId={pc.id} popcycleTitle={pc.title} />
               </div>
             ))}
           </div>
@@ -103,6 +101,7 @@ export default async function AnthologyPage() {
                     <th className="px-4 py-3 font-medium">Author</th>
                     <th className="px-4 py-3 font-medium">Popcycle</th>
                     <th className="px-4 py-3 font-medium">Selected</th>
+                    <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
@@ -121,6 +120,9 @@ export default async function AnthologyPage() {
                         </td>
                         <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                           {formatDate(entry.created_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <RemoveFromAnthologyButton entryId={entry.id} />
                         </td>
                       </tr>
                     );

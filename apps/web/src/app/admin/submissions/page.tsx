@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StoryStatus } from "@poplit/core/types";
+import { ApproveButton, RejectButton } from "./actions";
 
 const statusColors: Record<StoryStatus, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -56,6 +57,9 @@ export default async function SubmissionsPage({ searchParams }: Props) {
     { label: "Rejected", value: "rejected" },
   ];
 
+  // Statuses that can be acted on (approve/reject)
+  const actionableStatuses = new Set(["pending_review", "ai_flagged"]);
+
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold text-[var(--color-text)]">Submissions</h1>
@@ -104,8 +108,14 @@ export default async function SubmissionsPage({ searchParams }: Props) {
                 </td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(story.created_at)}</td>
                 <td className="px-4 py-3">
-                  {/* TODO: Link to story review detail page */}
-                  <span className="text-xs text-[var(--color-primary)] cursor-pointer hover:underline">Review</span>
+                  {actionableStatuses.has(story.status) ? (
+                    <div className="flex gap-2">
+                      <ApproveButton storyId={story.id} />
+                      <RejectButton storyId={story.id} />
+                    </div>
+                  ) : (
+                    <span className="text-xs text-[var(--color-text-secondary)]">--</span>
+                  )}
                 </td>
               </tr>
             ))}

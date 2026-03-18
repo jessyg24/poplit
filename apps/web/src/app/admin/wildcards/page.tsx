@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { VelocityCell, AwardWildcardButton } from "./actions";
 
 export default async function WildcardsPage() {
   const admin = createAdminClient();
@@ -10,9 +11,9 @@ export default async function WildcardsPage() {
     .in("status", ["reading_open", "popoff"])
     .order("popoff_at", { ascending: true });
 
-  // For each active popcycle, get stories that are not in top positions but showing strong velocity
-  // TODO: Implement real velocity metrics (pops per hour, acceleration, etc.)
+  // For each active popcycle, get stories that are not in top positions but showing potential
   const wildcardCandidates: Array<{
+    popcycleId: string;
     popcycleTitle: string;
     storyId: string;
     storyTitle: string;
@@ -53,6 +54,7 @@ export default async function WildcardsPage() {
       candidates.forEach((c) => {
         const story = storyMap[c.story_id];
         wildcardCandidates.push({
+          popcycleId: pc.id,
           popcycleTitle: pc.title,
           storyId: c.story_id,
           storyTitle: story?.title ?? "Unknown",
@@ -69,10 +71,9 @@ export default async function WildcardsPage() {
     <div>
       <h1 className="mb-6 text-2xl font-bold text-[var(--color-text)]">Wildcard Pool</h1>
 
-      {/* Velocity metrics placeholder */}
-      <div className="mb-4 rounded-md border border-[var(--color-accent)] bg-purple-50 p-3 text-sm text-purple-700">
-        {/* TODO: Implement real-time velocity tracking - pops/hour, acceleration, momentum score */}
-        Velocity metrics are a placeholder. Implement real-time pop velocity tracking for accurate wildcard selection.
+      <div className="mb-4 rounded-md border border-purple-200 bg-purple-50 p-3 text-sm text-purple-700">
+        Velocity is calculated from real pop data: pops in the last 24h vs the previous 24h window.
+        Positive acceleration indicates a story gaining momentum.
       </div>
 
       {wildcardCandidates.length === 0 ? (
@@ -91,6 +92,7 @@ export default async function WildcardsPage() {
                 <th className="px-4 py-3 font-medium">Readers</th>
                 <th className="px-4 py-3 font-medium">Completion</th>
                 <th className="px-4 py-3 font-medium">Velocity</th>
+                <th className="px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
@@ -102,9 +104,15 @@ export default async function WildcardsPage() {
                   <td className="px-4 py-3 text-[var(--color-text)]">#{c.rank ?? "-"}</td>
                   <td className="px-4 py-3 text-[var(--color-text)]">{c.totalReaders}</td>
                   <td className="px-4 py-3 text-[var(--color-text)]">{(c.completionRate * 100).toFixed(1)}%</td>
-                  <td className="px-4 py-3 text-[var(--color-text-secondary)] italic">
-                    {/* TODO: Real velocity metric */}
-                    N/A
+                  <td className="px-4 py-3">
+                    <VelocityCell storyId={c.storyId} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <AwardWildcardButton
+                      storyId={c.storyId}
+                      popcycleId={c.popcycleId}
+                      storyTitle={c.storyTitle}
+                    />
                   </td>
                 </tr>
               ))}

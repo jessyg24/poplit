@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PopcycleStatus } from "@poplit/core/types";
+import { EditPopcycleButton, ChangeStatusButton, DeletePopcycleButton } from "./actions";
 
 const statusColors: Record<PopcycleStatus, string> = {
   draft: "bg-gray-100 text-gray-700",
@@ -68,6 +69,7 @@ export default async function PopcyclesPage() {
               <th className="px-4 py-3 font-medium">Prize Pool</th>
               <th className="px-4 py-3 font-medium">Submissions</th>
               <th className="px-4 py-3 font-medium">Pop-Off</th>
+              <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
@@ -86,11 +88,18 @@ export default async function PopcyclesPage() {
                   {formatDate(pc.submissions_open_at)} - {formatDate(pc.submissions_close_at)}
                 </td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(pc.popoff_at)}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1">
+                    <EditPopcycleButton popcycle={pc} />
+                    <ChangeStatusButton popcycleId={pc.id} currentStatus={pc.status as PopcycleStatus} />
+                    <DeletePopcycleButton popcycleId={pc.id} status={pc.status as PopcycleStatus} title={pc.title} />
+                  </div>
+                </td>
               </tr>
             ))}
             {(popcycles ?? []).length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                <td colSpan={8} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
                   No popcycles yet. Create your first one!
                 </td>
               </tr>

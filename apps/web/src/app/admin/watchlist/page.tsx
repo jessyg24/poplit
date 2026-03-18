@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { RemoveFromWatchlistButton, EditReasonInline, AddToWatchlistForm } from "./actions";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -19,7 +20,11 @@ export default async function WatchlistPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-[var(--color-text)]">Watchlist</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-[var(--color-text)]">Watchlist</h1>
+      </div>
+
+      <AddToWatchlistForm />
 
       {(users ?? []).length === 0 ? (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center text-[var(--color-text-secondary)]">
@@ -42,11 +47,12 @@ export default async function WatchlistPage() {
                 <tr key={user.id} className="hover:bg-[var(--color-surface)] transition-colors">
                   <td className="px-4 py-3 font-medium text-[var(--color-text)]">{user.pen_name}</td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">{user.email}</td>
-                  <td className="px-4 py-3 text-[var(--color-text)]">{user.watch_list_reason ?? "No reason given"}</td>
+                  <td className="px-4 py-3">
+                    <EditReasonInline userId={user.id} currentReason={user.watch_list_reason} />
+                  </td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(user.updated_at)}</td>
                   <td className="px-4 py-3">
-                    {/* TODO: Implement remove from watchlist action */}
-                    <button className="text-xs text-red-600 hover:underline">Remove</button>
+                    <RemoveFromWatchlistButton userId={user.id} />
                   </td>
                 </tr>
               ))}

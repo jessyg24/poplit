@@ -1,60 +1,81 @@
 "use client";
 
-import { useState } from "react";
-import { SCORING_WEIGHTS, MIN_READ_TIME_MS, RATE_LIMITS, AI_DETECTION_THRESHOLD, SECTION_WEIGHTS } from "@poplit/core/constants";
+import { useState, useEffect, useTransition } from "react";
+import { loadPlatformSettings, savePlatformSettings } from "../actions";
+import {
+  SCORING_WEIGHTS,
+  MIN_READ_TIME_MS,
+  RATE_LIMITS,
+  AI_DETECTION_THRESHOLD,
+  SECTION_WEIGHTS,
+} from "@poplit/core/constants";
 
 const fieldClass =
   "w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]";
 const labelClass = "block text-sm font-medium text-[var(--color-text)] mb-1";
 
+// Fallback defaults from constants
+const DEFAULTS: Record<string, number> = {
+  popsPerMinute: RATE_LIMITS.popsPerMinute,
+  commentsPerMinute: RATE_LIMITS.commentsPerMinute,
+  messagesPerMinute: RATE_LIMITS.messagesPerMinute,
+  submissionsPerPopcycle: RATE_LIMITS.submissionsPerPopcycle,
+  minReadTimeMs: MIN_READ_TIME_MS,
+  aiDetectionThreshold: AI_DETECTION_THRESHOLD,
+  accountAgeWeight: SCORING_WEIGHTS.accountAge.weight,
+  completionRateWeight: SCORING_WEIGHTS.completionRate.weight,
+  activityLevelWeight: SCORING_WEIGHTS.activityLevel.weight,
+  badgeCountWeight: SCORING_WEIGHTS.badgeCount.weight,
+  contestHistoryWeight: SCORING_WEIGHTS.contestHistory.weight,
+  multiplierFloor: SCORING_WEIGHTS.multiplierFloor,
+  multiplierCeiling: SCORING_WEIGHTS.multiplierCeiling,
+  section1Weight: SECTION_WEIGHTS[1],
+  section2Weight: SECTION_WEIGHTS[2],
+  section3Weight: SECTION_WEIGHTS[3],
+  section4Weight: SECTION_WEIGHTS[4],
+  section5Weight: SECTION_WEIGHTS[5],
+};
+
 export default function SettingsPage() {
-  // Initialize with current constants - TODO: Load from platform_settings table
-  const [settings, setSettings] = useState({
-    // Rate limits
-    popsPerMinute: RATE_LIMITS.popsPerMinute,
-    commentsPerMinute: RATE_LIMITS.commentsPerMinute,
-    messagesPerMinute: RATE_LIMITS.messagesPerMinute,
-    submissionsPerPopcycle: RATE_LIMITS.submissionsPerPopcycle,
+  const [settings, setSettings] = useState(DEFAULTS);
+  const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-    // Min read time
-    minReadTimeMs: MIN_READ_TIME_MS,
+  useEffect(() => {
+    loadPlatformSettings().then((result) => {
+      if (result.settings && typeof result.settings === "object") {
+        const loaded = result.settings as Record<string, number>;
+        setSettings((prev) => ({ ...prev, ...loaded }));
+      }
+      setLoading(false);
+    });
+  }, []);
 
-    // AI detection
-    aiDetectionThreshold: AI_DETECTION_THRESHOLD,
-
-    // Scoring weights
-    accountAgeWeight: SCORING_WEIGHTS.accountAge.weight,
-    completionRateWeight: SCORING_WEIGHTS.completionRate.weight,
-    activityLevelWeight: SCORING_WEIGHTS.activityLevel.weight,
-    badgeCountWeight: SCORING_WEIGHTS.badgeCount.weight,
-    contestHistoryWeight: SCORING_WEIGHTS.contestHistory.weight,
-    multiplierFloor: SCORING_WEIGHTS.multiplierFloor,
-    multiplierCeiling: SCORING_WEIGHTS.multiplierCeiling,
-
-    // Section weights
-    section1Weight: SECTION_WEIGHTS[1],
-    section2Weight: SECTION_WEIGHTS[2],
-    section3Weight: SECTION_WEIGHTS[3],
-    section4Weight: SECTION_WEIGHTS[4],
-    section5Weight: SECTION_WEIGHTS[5],
-  });
-
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  function updateSetting(key: keyof typeof settings, value: number) {
+  function updateSetting(key: string, value: number) {
     setSettings((prev) => ({ ...prev, [key]: value }));
-    setSaved(false);
+    setStatus(null);
   }
 
-  async function handleSave() {
-    setSaving(true);
-    // TODO: Save to platform_settings table in Supabase
-    // const supabase = createBrowserClient(...)
-    // await supabase.from("platform_settings").upsert({ key: "settings", value: settings })
-    await new Promise((r) => setTimeout(r, 500)); // Simulate save
-    setSaving(false);
-    setSaved(true);
+  function handleSave() {
+    setStatus(null);
+    startTransition(async () => {
+      const result = await savePlatformSettings(settings);
+      if (result.error) {
+        setStatus({ type: "error", message: result.error });
+      } else {
+        setStatus({ type: "success", message: "Settings saved successfully." });
+      }
+    });
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <h1 className="mb-6 text-2xl font-bold text-[var(--color-text)]">Platform Settings</h1>
+        <p className="text-sm text-[var(--color-text-secondary)]">Loading settings...</p>
+      </div>
+    );
   }
 
   return (
@@ -118,7 +139,7 @@ export default function SettingsPage() {
                 className={fieldClass}
               />
               <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                {(settings.minReadTimeMs / 1000).toFixed(0)}s per section
+                {((settings.minReadTimeMs ?? 0) / 1000).toFixed(0)}s per section
               </p>
             </div>
             <div>
@@ -133,7 +154,7 @@ export default function SettingsPage() {
                 className={fieldClass}
               />
               <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                Stories scoring above this are flagged ({(settings.aiDetectionThreshold * 100).toFixed(0)}%)
+                Stories scoring above this are flagged ({((settings.aiDetectionThreshold ?? 0) * 100).toFixed(0)}%)
               </p>
             </div>
           </div>
@@ -199,11 +220,11 @@ export default function SettingsPage() {
           </div>
           <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
             Sum: {(
-              settings.accountAgeWeight +
-              settings.completionRateWeight +
-              settings.activityLevelWeight +
-              settings.badgeCountWeight +
-              settings.contestHistoryWeight
+              (settings.accountAgeWeight ?? 0) +
+              (settings.completionRateWeight ?? 0) +
+              (settings.activityLevelWeight ?? 0) +
+              (settings.badgeCountWeight ?? 0) +
+              (settings.contestHistoryWeight ?? 0)
             ).toFixed(2)}
             {" "}(should be 1.00)
           </p>
@@ -245,8 +266,8 @@ export default function SettingsPage() {
                 <input
                   type="number"
                   step="0.1"
-                  value={settings[`section${n}Weight` as keyof typeof settings]}
-                  onChange={(e) => updateSetting(`section${n}Weight` as keyof typeof settings, Number(e.target.value))}
+                  value={settings[`section${n}Weight`]}
+                  onChange={(e) => updateSetting(`section${n}Weight`, Number(e.target.value))}
                   className={fieldClass}
                 />
               </div>
@@ -258,16 +279,17 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={isPending}
             className="rounded-md bg-[var(--color-primary)] px-6 py-2.5 text-sm font-medium text-white hover:bg-[var(--color-primary-hover)] disabled:opacity-50 transition-colors"
           >
-            {saving ? "Saving..." : "Save Settings"}
+            {isPending ? "Saving..." : "Save Settings"}
           </button>
-          {saved && <span className="text-sm text-green-600">Settings saved (placeholder).</span>}
-        </div>
-
-        <div className="rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-700">
-          TODO: These settings are currently loaded from constants. Implement a platform_settings table to persist admin changes to the database.
+          {status?.type === "success" && (
+            <span className="text-sm text-green-600">{status.message}</span>
+          )}
+          {status?.type === "error" && (
+            <span className="text-sm text-red-600">{status.message}</span>
+          )}
         </div>
       </div>
     </div>

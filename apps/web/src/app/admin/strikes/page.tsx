@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StrikeStatus } from "@poplit/core/types";
+import { IssueStrikeForm, ReverseStrikeButton, ExpireStrikeButton } from "./actions";
 
 const statusColors: Record<StrikeStatus, string> = {
   active: "bg-red-100 text-red-700",
@@ -36,11 +37,9 @@ export default async function StrikesPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--color-text)]">Strikes</h1>
-        {/* TODO: Add "Issue Strike" button that opens a modal */}
-        <button className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors">
-          Issue Strike
-        </button>
       </div>
+
+      <IssueStrikeForm />
 
       <div className="overflow-x-auto rounded-lg border border-[var(--color-border)]">
         <table className="w-full text-sm">
@@ -52,6 +51,7 @@ export default async function StrikesPage() {
               <th className="px-4 py-3 font-medium">Issued By</th>
               <th className="px-4 py-3 font-medium">Date</th>
               <th className="px-4 py-3 font-medium">Expires</th>
+              <th className="px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
@@ -73,11 +73,19 @@ export default async function StrikesPage() {
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                   {strike.expires_at ? formatDate(strike.expires_at) : "Never"}
                 </td>
+                <td className="px-4 py-3">
+                  {strike.status === "active" && (
+                    <div className="flex gap-2">
+                      <ReverseStrikeButton strikeId={strike.id} />
+                      <ExpireStrikeButton strikeId={strike.id} />
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
             {(strikes ?? []).length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
                   No strikes issued.
                 </td>
               </tr>

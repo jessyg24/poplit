@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { EditSponsorButton, RemoveSponsorButton } from "./actions";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -90,6 +91,19 @@ export default async function SponsorsPage() {
                   <p className="text-xs text-[var(--color-text-secondary)]">Pop-Off</p>
                   <p className="mt-1 text-sm font-medium text-[var(--color-text)]">{formatDate(pc.popoff_at)}</p>
                 </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="mt-4 flex gap-2 border-t border-[var(--color-border)] pt-3">
+                <EditSponsorButton
+                  popcycleId={pc.id}
+                  currentName={pc.sponsor_name}
+                  currentLogoUrl={pc.sponsor_logo_url}
+                />
+                <RemoveSponsorButton
+                  popcycleId={pc.id}
+                  sponsorName={pc.sponsor_name}
+                />
               </div>
             </div>
           ))}

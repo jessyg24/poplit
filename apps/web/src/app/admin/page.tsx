@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getDashboardRevenue } from "./actions";
 
 interface KpiCardProps {
   label: string;
@@ -16,6 +17,10 @@ function KpiCard({ label, value, subtext }: KpiCardProps) {
   );
 }
 
+function formatCents(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 export default async function AdminDashboardPage() {
   const admin = createAdminClient();
 
@@ -27,6 +32,7 @@ export default async function AdminDashboardPage() {
     reportsRes,
     strikesRes,
     popcyclesRes,
+    revenueData,
   ] = await Promise.all([
     admin.from("users").select("id", { count: "exact", head: true }),
     admin.from("users").select("id", { count: "exact", head: true }).eq("role", "writer"),
@@ -35,12 +41,8 @@ export default async function AdminDashboardPage() {
     admin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
     admin.from("strikes").select("id", { count: "exact", head: true }).eq("status", "active"),
     admin.from("popcycles").select("id", { count: "exact", head: true }).in("status", ["submissions_open", "reading_open", "popoff"]),
+    getDashboardRevenue(),
   ]);
-
-  // TODO: Calculate total revenue from entry fees (sum of popcycle prize_pool_cents)
-  const totalRevenue = "$0.00";
-  // TODO: Calculate current prize pool for active popcycles
-  const prizePool = "$0.00";
 
   return (
     <div>
@@ -57,13 +59,13 @@ export default async function AdminDashboardPage() {
         <KpiCard label="Total Stories" value={storiesRes.count ?? 0} />
         <KpiCard
           label="Total Revenue"
-          value={totalRevenue}
-          subtext="TODO: Compute from entry fees"
+          value={formatCents(revenueData.totalRevenueCents)}
+          subtext="Sum of completed popcycle prize pools"
         />
         <KpiCard
-          label="Prize Pool"
-          value={prizePool}
-          subtext="TODO: Sum active popcycle pools"
+          label="Active Prize Pool"
+          value={formatCents(revenueData.activePrizePoolCents)}
+          subtext="Sum of active popcycle pools"
         />
         <KpiCard label="Pending Reviews" value={pendingRes.count ?? 0} />
         <KpiCard label="Open Reports" value={reportsRes.count ?? 0} />
@@ -84,13 +86,43 @@ export default async function AdminDashboardPage() {
             href="/admin/submissions"
             className="rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-border)] transition-colors"
           >
-            Review Submissions
+            Review Submissions ({pendingRes.count ?? 0})
           </a>
           <a
             href="/admin/reports"
             className="rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-border)] transition-colors"
           >
-            Handle Reports
+            Handle Reports ({reportsRes.count ?? 0})
+          </a>
+          <a
+            href="/admin/ai-review"
+            className="rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-border)] transition-colors"
+          >
+            AI Review Queue
+          </a>
+          <a
+            href="/admin/wildcards"
+            className="rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-border)] transition-colors"
+          >
+            Wildcards
+          </a>
+          <a
+            href="/admin/anthology"
+            className="rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-border)] transition-colors"
+          >
+            Anthology
+          </a>
+          <a
+            href="/admin/scores"
+            className="rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-border)] transition-colors"
+          >
+            Scores
+          </a>
+          <a
+            href="/admin/payouts"
+            className="rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-border)] transition-colors"
+          >
+            Payouts
           </a>
         </div>
       </div>

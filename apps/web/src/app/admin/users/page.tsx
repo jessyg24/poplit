@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@poplit/core/types";
+import { EditRoleButton, IssueStrikeButton, ToggleWatchlistButton } from "./actions";
 
 const roleColors: Record<UserRole, string> = {
   reader: "bg-blue-100 text-blue-700",
@@ -90,14 +91,9 @@ export default async function UsersPage({ searchParams }: Props) {
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(user.created_at)}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
-                    {/* TODO: Implement role edit modal */}
-                    <button className="text-xs text-[var(--color-primary)] hover:underline">Edit Role</button>
-                    {/* TODO: Implement strike/ban action */}
-                    <button className="text-xs text-red-600 hover:underline">Strike</button>
-                    {/* TODO: Implement watchlist toggle */}
-                    <button className="text-xs text-yellow-600 hover:underline">
-                      {user.watch_list ? "Unwatch" : "Watch"}
-                    </button>
+                    <EditRoleButton userId={user.id} currentRole={user.role as UserRole} />
+                    <IssueStrikeButton userId={user.id} penName={user.pen_name} />
+                    <ToggleWatchlistButton userId={user.id} isWatched={user.watch_list} />
                   </div>
                 </td>
               </tr>

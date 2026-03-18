@@ -359,6 +359,19 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
       };
+      platform_settings: {
+        Row: {
+          id: string;
+          settings: Json;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          settings: Json;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["platform_settings"]["Insert"]>;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

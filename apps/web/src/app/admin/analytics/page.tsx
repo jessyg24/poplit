@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AnalyticsCharts } from "./charts";
 
 export default async function AnalyticsPage() {
   const admin = createAdminClient();
@@ -78,12 +79,9 @@ export default async function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Charts placeholder */}
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <ChartPlaceholder title="User Growth Over Time" />
-        <ChartPlaceholder title="Daily Reads (Pops)" />
-        <ChartPlaceholder title="Revenue Over Time" />
-        <ChartPlaceholder title="Story Submissions Per Week" />
+      {/* Time-series charts */}
+      <div className="mt-8">
+        <AnalyticsCharts />
       </div>
     </div>
   );
@@ -110,18 +108,6 @@ function BarRow({ label, value, total, color }: { label: string; value: number; 
       </div>
       <div className="mt-1 h-2 w-full rounded-full bg-[var(--color-border)]">
         <div className={`h-2 rounded-full ${color}`} style={{ width: `${Math.max(pct, 1)}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function ChartPlaceholder({ title }: { title: string }) {
-  return (
-    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-      <h3 className="mb-3 text-sm font-semibold text-[var(--color-text)]">{title}</h3>
-      <div className="flex h-48 items-center justify-center rounded-md bg-[var(--color-background)] text-sm text-[var(--color-text-secondary)]">
-        {/* TODO: Implement with recharts or similar charting library */}
-        Chart placeholder - implement time-series visualization
       </div>
     </div>
   );
