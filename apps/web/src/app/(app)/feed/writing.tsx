@@ -36,6 +36,7 @@ interface UserProfile {
   role: string;
   entry_credits: number;
   invite_code: string;
+  pen_name_changed_at: string | null;
   created_at: string;
 }
 
@@ -1227,6 +1228,76 @@ function SettingsTab({
   const [serverError, setServerError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [penNameEdit, setPenNameEdit] = useState(false);
+  const [newPenName, setNewPenName] = useState(user?.pen_name ?? "");
+  const [penNameError, setPenNameError] = useState<string | null>(null);
+  const [penNameSaving, setPenNameSaving] = useState(false);
+
+  const canChangePenName = (() => {
+    if (!user?.pen_name_changed_at) return true;
+    const lastChanged = new Date(user.pen_name_changed_at);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    return lastChanged < sevenDaysAgo;
+  })();
+
+  const daysUntilChange = (() => {
+    if (!user?.pen_name_changed_at) return 0;
+    const lastChanged = new Date(user.pen_name_changed_at);
+    const nextAllowed = new Date(lastChanged.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const diff = nextAllowed.getTime() - Date.now();
+    return diff > 0 ? Math.ceil(diff / (24 * 60 * 60 * 1000)) : 0;
+  })();
+
+  async function handlePenNameChange() {
+    setPenNameError(null);
+    const trimmed = newPenName.trim();
+
+    if (!trimmed || trimmed.length < 3) {
+      setPenNameError("Pen name must be at least 3 characters.");
+      return;
+    }
+    if (trimmed.length > 30) {
+      setPenNameError("Pen name must be at most 30 characters.");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
+      setPenNameError("Letters, numbers, hyphens, and underscores only.");
+      return;
+    }
+    if (trimmed === user?.pen_name) {
+      setPenNameEdit(false);
+      return;
+    }
+
+    setPenNameSaving(true);
+
+    // Check uniqueness
+    const { data: existing } = await supabase
+      .from("users")
+      .select("id")
+      .eq("pen_name", trimmed)
+      .neq("id", user?.id ?? "")
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      setPenNameError("That pen name is already taken.");
+      setPenNameSaving(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("users")
+      .update({ pen_name: trimmed, pen_name_changed_at: new Date().toISOString() })
+      .eq("id", user?.id ?? "");
+
+    if (error) {
+      setPenNameError(error.message);
+    } else {
+      setSuccessMsg("Pen name updated!");
+      setPenNameEdit(false);
+    }
+    setPenNameSaving(false);
+  }
 
   const {
     register,
@@ -1386,14 +1457,62 @@ function SettingsTab({
         <form onSubmit={handleSubmit(onUpdateProfile)} className="space-y-4">
           <div>
             <label className={labelClass}>Pen Name</label>
-            <input
-              type="text"
-              value={user?.pen_name ?? ""}
-              disabled
-              className={inputClass + " opacity-60 cursor-not-allowed"}
-            />
+            {penNameEdit ? (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={newPenName}
+                  onChange={(e) => setNewPenName(e.target.value)}
+                  maxLength={30}
+                  className={inputClass + " font-mono"}
+                  placeholder="new-pen-name"
+                />
+                {penNameError && (
+                  <p className="text-sm text-red-500">{penNameError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePenNameChange}
+                    disabled={penNameSaving}
+                    className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+                  >
+                    {penNameSaving ? "Checking..." : "Save Pen Name"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setPenNameEdit(false); setPenNameError(null); setNewPenName(user?.pen_name ?? ""); }}
+                    className="px-4 py-2 rounded-lg bg-slate-100 text-slate-600 text-sm font-medium hover:bg-slate-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={user?.pen_name ?? ""}
+                  disabled
+                  className={inputClass + " opacity-60 cursor-not-allowed flex-1"}
+                />
+                {canChangePenName ? (
+                  <button
+                    type="button"
+                    onClick={() => setPenNameEdit(true)}
+                    className="shrink-0 px-3 py-2 rounded-lg text-sm font-medium text-purple-600 hover:bg-purple-50 transition-colors"
+                  >
+                    Change
+                  </button>
+                ) : (
+                  <span className="shrink-0 text-xs text-slate-400">
+                    {daysUntilChange}d until next change
+                  </span>
+                )}
+              </div>
+            )}
             <p className="mt-1 text-xs text-slate-400">
-              Pen name cannot be changed.
+              Can be changed once every 7 days. Letters, numbers, hyphens, underscores only.
             </p>
           </div>
 
