@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GENRES, MOODS, TRIGGER_WARNINGS, STORY_LIMITS } from "../constants";
+import { GENRES, MOODS, TRIGGER_WARNINGS, STORY_LIMITS, MAX_GENRES_PER_STORY } from "../constants";
 
 // Auth
 export const loginSchema = z.object({
@@ -23,32 +23,25 @@ export const onboardingSchema = z.object({
   avatar_url: z.string().url().optional(),
 });
 
-// Story submission
-export const storySubmissionSchema = z.object({
+// Story draft (saving/editing drafts — no popcycle required)
+export const storyDraftSchema = z.object({
   title: z.string().min(1, "Title is required").max(STORY_LIMITS.titleMaxLength),
-  hook: z.string().min(1, "Hook is required").max(STORY_LIMITS.hookMaxLength),
-  genre: z.enum(GENRES as unknown as [string, ...string[]]),
+  hook: z.string().max(STORY_LIMITS.hookMaxLength).optional(),
+  genre: z
+    .array(z.enum(GENRES as unknown as [string, ...string[]]))
+    .min(1, "At least one genre is required")
+    .max(MAX_GENRES_PER_STORY, `Maximum ${MAX_GENRES_PER_STORY} genres`),
   mood: z.enum(MOODS as unknown as [string, ...string[]]).optional(),
   triggers: z.array(z.enum(TRIGGER_WARNINGS as unknown as [string, ...string[]])).default([]),
-  content: z
-    .string()
-    .min(1, "Story content is required")
-    .refine(
-      (val) => {
-        const wordCount = val.trim().split(/\s+/).length;
-        return wordCount >= STORY_LIMITS.minWords;
-      },
-      { message: `Story must be at least ${STORY_LIMITS.minWords} words` },
-    )
-    .refine(
-      (val) => {
-        const wordCount = val.trim().split(/\s+/).length;
-        return wordCount <= STORY_LIMITS.maxWords;
-      },
-      { message: `Story must be at most ${STORY_LIMITS.maxWords} words` },
-    ),
-  popcycle_id: z.string().uuid(),
+  content: z.string().optional(),
   ai_assisted: z.boolean().default(false),
+});
+
+// Story submission (submitting a draft to a Popcycle)
+export const storySubmissionSchema = z.object({
+  draft_id: z.string().uuid(),
+  popcycle_id: z.string().uuid(),
+  predecessor_id: z.string().uuid().optional(),
 });
 
 // Comment
@@ -113,6 +106,7 @@ export const featureBubbleSchema = z.object({
 export type LoginInput = z.infer<typeof loginSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type OnboardingInput = z.infer<typeof onboardingSchema>;
+export type StoryDraftInput = z.infer<typeof storyDraftSchema>;
 export type StorySubmissionInput = z.infer<typeof storySubmissionSchema>;
 export type CommentInput = z.infer<typeof commentSchema>;
 export type MessageInput = z.infer<typeof messageSchema>;

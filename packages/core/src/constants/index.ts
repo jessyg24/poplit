@@ -132,6 +132,9 @@ export const RATE_LIMITS = {
   submissionsPerPopcycle: 1,
 } as const;
 
+// Max genres per story
+export const MAX_GENRES_PER_STORY = 3;
+
 // AI detection threshold (≥65% flags as AI-generated)
 export const AI_DETECTION_THRESHOLD = 0.65;
 

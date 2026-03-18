@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
 
         // Get author's Stripe Connect account
         const { data: profile } = await supabase
-          .from("profiles")
+          .from("users")
           .select("stripe_connect_id")
           .eq("id", winner.author_id)
           .single();
@@ -165,14 +165,14 @@ Deno.serve(async (req: Request) => {
 
         // Increment entry_credits on the user's profile
         const { data: currentProfile } = await supabase
-          .from("profiles")
+          .from("users")
           .select("entry_credits")
           .eq("id", runner.author_id)
           .single();
 
         const currentCredits = currentProfile?.entry_credits ?? 0;
         await supabase
-          .from("profiles")
+          .from("users")
           .update({ entry_credits: currentCredits + 1 })
           .eq("id", runner.author_id);
 
@@ -204,6 +204,61 @@ Deno.serve(async (req: Request) => {
           completed_at: new Date().toISOString(),
         })
         .eq("id", cycle.id);
+
+      // --- Series sequel notifications ---
+      // Find stories in this Popcycle that have a predecessor (are sequels)
+      const { data: sequels } = await supabase
+        .from("stories")
+        .select("id, title, predecessor_id")
+        .eq("popcycle_id", cycle.id)
+        .not("predecessor_id", "is", null);
+
+      if (sequels && sequels.length > 0) {
+        for (const sequel of sequels) {
+          // Get predecessor title
+          const { data: predecessor } = await supabase
+            .from("stories")
+            .select("title")
+            .eq("id", sequel.predecessor_id)
+            .single();
+
+          const predecessorTitle = predecessor?.title ?? "a previous story";
+
+          // Find readers who completed the predecessor (5 pops) or have it in their garden
+          const { data: completedReaders } = await supabase
+            .from("pops")
+            .select("reader_id")
+            .eq("story_id", sequel.predecessor_id)
+            .eq("section_opened", 5);
+
+          const { data: gardenReaders } = await supabase
+            .from("poppy_gardens")
+            .select("reader_id")
+            .eq("story_id", sequel.predecessor_id);
+
+          // Combine unique reader IDs
+          const readerSet = new Set<string>();
+          for (const r of completedReaders ?? []) readerSet.add(r.reader_id);
+          for (const r of gardenReaders ?? []) readerSet.add(r.reader_id);
+
+          // Send notification to each reader
+          const notifications = Array.from(readerSet).map((readerId) => ({
+            user_id: readerId,
+            type: "series_sequel_available" as const,
+            title: "A sequel is here!",
+            body: `${sequel.title} — the next part after ${predecessorTitle} — just finished its PopOff!`,
+            data: {
+              story_id: sequel.id,
+              predecessor_id: sequel.predecessor_id,
+              popcycle_id: cycle.id,
+            },
+          }));
+
+          if (notifications.length > 0) {
+            await supabase.from("notifications").insert(notifications);
+          }
+        }
+      }
 
       results.push({
         popcycle_id: cycle.id,

@@ -20,7 +20,8 @@ export type NotificationType =
   | "story_rejected"
   | "strike_issued"
   | "wildcard_win"
-  | "anthology_selected";
+  | "anthology_selected"
+  | "series_sequel_available";
 
 export interface Database {
   public: {
@@ -56,17 +57,18 @@ export interface Database {
         Row: {
           id: string;
           author_id: string;
-          popcycle_id: string;
+          popcycle_id: string | null;
           title: string;
-          hook: string;
-          genre: string;
+          hook: string | null;
+          genre: string[];
           mood: string | null;
           triggers: string[];
-          section_1: string;
-          section_2: string;
-          section_3: string;
-          section_4: string;
-          section_5: string;
+          content: string | null;
+          section_1: string | null;
+          section_2: string | null;
+          section_3: string | null;
+          section_4: string | null;
+          section_5: string | null;
           word_count: number;
           status: StoryStatus;
           ai_score: number | null;
@@ -76,6 +78,7 @@ export interface Database {
           ai_disclaimer: boolean;
           ai_disclaimer_source: "self_disclosed" | "auto_flagged" | null;
           payment_intent_id: string | null;
+          predecessor_id: string | null;
           published_at: string | null;
           created_at: string;
           updated_at: string;
@@ -92,6 +95,15 @@ export interface Database {
           ai_disclaimer_source?: "self_disclosed" | "auto_flagged" | null;
           published_at?: string | null;
           status?: StoryStatus;
+          popcycle_id?: string | null;
+          hook?: string | null;
+          content?: string | null;
+          section_1?: string | null;
+          section_2?: string | null;
+          section_3?: string | null;
+          section_4?: string | null;
+          section_5?: string | null;
+          predecessor_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["stories"]["Insert"]>;
       };

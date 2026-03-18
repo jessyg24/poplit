@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ENTRY_FEE_CENTS } from "@poplit/core/constants";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
   let customerId = profile?.stripe_customer_id;
 
   if (!customerId) {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: user.email,
       metadata: { user_id: user.id },
     });
@@ -40,9 +42,9 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id);
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loresparkbooks.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://poplit.io";
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     mode: "payment",
     customer: customerId,
     line_items: [

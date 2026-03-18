@@ -16,7 +16,7 @@ interface StoryRow {
   id: string;
   title: string;
   hook: string;
-  genre: string;
+  genre: string[];
   triggers: string[];
   section_1: string;
   section_2: string;
@@ -148,8 +148,8 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     ? {
         id: currentStory.id,
         title: currentStory.title,
-        genre: currentStory.genre,
-        genreColor: genreColors[currentStory.genre] ?? colors.accent[500],
+        genre: currentStory.genre[0] ?? "Literary Fiction",
+        genreColor: genreColors[currentStory.genre[0] ?? ""] ?? colors.accent[500],
         triggers: currentStory.triggers ?? [],
         hook: currentStory.hook,
         authorPenName: currentStory.users?.pen_name ?? "unknown",
@@ -448,7 +448,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
       activeStory.section_5,
     ].filter(Boolean);
 
-    const genreColor = genreColors[activeStory.genre] ?? colors.accent[500];
+    const genreColor = genreColors[activeStory.genre[0] ?? ""] ?? colors.accent[500];
 
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
@@ -477,12 +477,15 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         {/* Story header */}
         <div className="max-w-2xl mx-auto px-4 pt-6 pb-4">
           <div className="flex flex-wrap gap-2 mb-3">
-            <span
-              className="px-3 py-1 rounded-full text-xs font-semibold text-white"
-              style={{ backgroundColor: genreColor }}
-            >
-              {activeStory.genre}
-            </span>
+            {activeStory.genre.map((g: string, i: number) => (
+              <span
+                key={g}
+                className="px-3 py-1 rounded-full text-xs font-semibold text-white"
+                style={{ backgroundColor: i === 0 ? genreColor : (genreColors[g] ?? colors.accent[500]) }}
+              >
+                {g}
+              </span>
+            ))}
             {activeStory.ai_disclaimer && (
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-300">
                 AI-Assisted

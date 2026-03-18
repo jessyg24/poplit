@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createClient } from "@/lib/supabase/client";
 import { useModeStore } from "@/stores/mode";
 import {
+  storyDraftSchema,
+  type StoryDraftInput,
   storySubmissionSchema,
   type StorySubmissionInput,
   profileUpdateSchema,
@@ -19,12 +21,13 @@ import {
   ENTRY_FEE_CENTS,
   PRIZE_DISTRIBUTION,
   SUBSCRIPTION_TIERS,
+  MAX_GENRES_PER_STORY,
 } from "@poplit/core/constants";
 import { countWords, formatCents, formatCountdown, splitIntoSections } from "@poplit/core/utils";
 
 /* ---------- types ---------- */
 
-type Tab = "overview" | "submit" | "popoff" | "billing" | "credits" | "settings";
+type Tab = "overview" | "stories" | "submit" | "popoff" | "garden" | "billing" | "credits" | "settings";
 
 interface UserProfile {
   id: string;
@@ -44,7 +47,7 @@ interface StoryWithScore {
   id: string;
   title: string;
   status: string;
-  genre: string;
+  genre: string[];
   created_at: string;
   display_score: number;
   total_readers: number;
@@ -233,8 +236,10 @@ export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "overview", label: "Overview" },
+    { key: "stories", label: "My Stories" },
     { key: "submit", label: "Submit" },
     { key: "popoff", label: "Popoff" },
+    { key: "garden", label: "Garden" },
     { key: "billing", label: "Billing" },
     { key: "credits", label: "Credits" },
     { key: "settings", label: "Settings" },
@@ -346,6 +351,9 @@ export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         {activeTab === "overview" && (
           <OverviewTab user={user} stories={stories} popcycle={popcycle} />
         )}
+        {activeTab === "stories" && (
+          <MyStoriesTab user={user} supabase={supabase} onSubmit={() => setActiveTab("submit")} />
+        )}
         {activeTab === "submit" && (
           <SubmitTab user={user} popcycle={popcycle} supabase={supabase} />
         )}
@@ -355,6 +363,9 @@ export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
             popoffStories={popoffStories}
             userRank={userPopoffRank}
           />
+        )}
+        {activeTab === "garden" && (
+          <GardenTab supabase={supabase} setMode={setMode} />
         )}
         {activeTab === "billing" && <BillingTab user={user} />}
         {activeTab === "credits" && <CreditsTab user={user} />}
@@ -497,7 +508,7 @@ function OverviewTab({
                       <StatusBadge status={story.status} />
                     </div>
                     <p className="mt-0.5 text-xs text-slate-400">
-                      {story.genre} &middot;{" "}
+                      {story.genre.join(", ")} &middot;{" "}
                       {new Date(story.created_at).toLocaleDateString()}
                     </p>
                   </div>
@@ -550,7 +561,709 @@ function OverviewTab({
 }
 
 /* ====================================================================
-   TAB: Submit
+   TAB: My Stories
+   ==================================================================== */
+
+interface DraftStory {
+  id: string;
+  title: string;
+  hook: string | null;
+  genre: string[];
+  mood: string | null;
+  triggers: string[];
+  content: string | null;
+  word_count: number;
+  ai_assisted: boolean;
+  status: string;
+  popcycle_id: string | null;
+  predecessor_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function MyStoriesTab({
+  user,
+  supabase,
+  onSubmit,
+}: {
+  user: UserProfile | null;
+  supabase: ReturnType<typeof createClient>;
+  onSubmit: () => void;
+}) {
+  const [drafts, setDrafts] = useState<DraftStory[]>([]);
+  const [submitted, setSubmitted] = useState<DraftStory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+
+  const inputClass =
+    "w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-shadow";
+  const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
+
+  // Load stories
+  const loadStories = useCallback(async () => {
+    if (!user) return;
+
+    const [{ data: draftData }, { data: submittedData }] = await Promise.all([
+      supabase
+        .from("stories")
+        .select("*")
+        .eq("author_id", user.id)
+        .is("popcycle_id", null)
+        .eq("status", "draft")
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("stories")
+        .select("*")
+        .eq("author_id", user.id)
+        .not("popcycle_id", "is", null)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    setDrafts((draftData as DraftStory[]) ?? []);
+    setSubmitted((submittedData as DraftStory[]) ?? []);
+    setLoading(false);
+  }, [user, supabase]);
+
+  useEffect(() => {
+    loadStories();
+  }, [loadStories]);
+
+  // Create new draft
+  async function handleNewDraft() {
+    if (!user) return;
+    setSaveError(null);
+
+    const { data, error } = await supabase
+      .from("stories")
+      .insert({
+        author_id: user.id,
+        title: "Untitled Draft",
+        hook: "",
+        genre: [],
+        mood: null,
+        triggers: [],
+        content: "",
+        section_1: "",
+        section_2: "",
+        section_3: "",
+        section_4: "",
+        section_5: "",
+        word_count: 0,
+        status: "draft",
+        ai_assisted: false,
+      })
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      setSaveError(error?.message ?? "Failed to create draft.");
+      return;
+    }
+
+    setDrafts((prev) => [data as DraftStory, ...prev]);
+    setEditingId(data.id);
+  }
+
+  // Delete draft
+  async function handleDelete(id: string) {
+    const { error } = await supabase.from("stories").delete().eq("id", id);
+    if (error) {
+      setSaveError(error.message);
+      return;
+    }
+    setDrafts((prev) => prev.filter((d) => d.id !== id));
+    setDeleteConfirm(null);
+    if (editingId === id) setEditingId(null);
+  }
+
+  // Link as sequel
+  async function handleLink(storyId: string, predecessorId: string | null) {
+    const { error } = await supabase
+      .from("stories")
+      .update({ predecessor_id: predecessorId })
+      .eq("id", storyId);
+
+    if (!error) {
+      setDrafts((prev) =>
+        prev.map((d) => (d.id === storyId ? { ...d, predecessor_id: predecessorId } : d))
+      );
+      setSubmitted((prev) =>
+        prev.map((d) => (d.id === storyId ? { ...d, predecessor_id: predecessorId } : d))
+      );
+    }
+    setLinkingId(null);
+  }
+
+  // Group submitted stories into series by following predecessor_id chains
+  const seriesGroups = (() => {
+    const allStories = [...submitted];
+    const byId = new Map(allStories.map((s) => [s.id, s]));
+    const visited = new Set<string>();
+    const groups: DraftStory[][] = [];
+
+    for (const story of allStories) {
+      if (visited.has(story.id)) continue;
+
+      // Walk back to find the root
+      let root = story;
+      while (root.predecessor_id && byId.has(root.predecessor_id)) {
+        root = byId.get(root.predecessor_id)!;
+      }
+
+      // Walk forward to build chain
+      const chain: DraftStory[] = [root];
+      visited.add(root.id);
+      let current = root;
+      const children = new Map<string, DraftStory>();
+      for (const s of allStories) {
+        if (s.predecessor_id) children.set(s.predecessor_id, s);
+      }
+      while (children.has(current.id)) {
+        const next = children.get(current.id)!;
+        if (visited.has(next.id)) break;
+        chain.push(next);
+        visited.add(next.id);
+        current = next;
+      }
+
+      groups.push(chain);
+    }
+
+    // Also add standalone stories not yet visited
+    for (const story of allStories) {
+      if (!visited.has(story.id)) {
+        groups.push([story]);
+        visited.add(story.id);
+      }
+    }
+
+    return groups;
+  })();
+
+  // All published stories for "link as sequel" dropdown
+  const publishedForLinking = submitted.filter(
+    (s) => s.status === "published" || s.status === "approved" || s.status === "pending_review"
+  );
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
+            My Stories
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Manage your drafts and view submitted stories.
+          </p>
+        </div>
+        <button
+          onClick={handleNewDraft}
+          className="px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors"
+        >
+          + New Draft
+        </button>
+      </div>
+
+      {saveError && (
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
+          {saveError}
+        </div>
+      )}
+
+      {/* Drafts */}
+      <section>
+        <h2 className="text-lg font-bold text-slate-800 mb-4">Drafts</h2>
+        {drafts.length === 0 ? (
+          <div className="text-center py-12 rounded-xl border border-slate-200 bg-white">
+            <p className="text-slate-400">No drafts yet.</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Click &quot;New Draft&quot; to start writing.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {drafts.map((draft) => (
+              <div key={draft.id}>
+                {editingId === draft.id ? (
+                  <DraftEditor
+                    draft={draft}
+                    supabase={supabase}
+                    inputClass={inputClass}
+                    labelClass={labelClass}
+                    onSave={(updated) => {
+                      setDrafts((prev) =>
+                        prev.map((d) => (d.id === updated.id ? updated : d))
+                      );
+                      setEditingId(null);
+                    }}
+                    onCancel={() => setEditingId(null)}
+                    onError={(msg) => setSaveError(msg)}
+                  />
+                ) : (
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 hover:border-purple-300 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-bold text-slate-800 truncate">
+                          {draft.title || "Untitled"}
+                        </h3>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {draft.genre.map((g) => (
+                            <span
+                              key={g}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700"
+                            >
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {draft.word_count.toLocaleString()} words &middot; Last edited{" "}
+                          {new Date(draft.updated_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setEditingId(draft.id)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-purple-600 hover:bg-purple-50 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        {deleteConfirm === draft.id ? (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleDelete(draft.id)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirm(null)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteConfirm(draft.id)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Submitted / Published (series grouped) */}
+      <section>
+        <h2 className="text-lg font-bold text-slate-800 mb-4">
+          Submitted &amp; Published
+        </h2>
+        {seriesGroups.length === 0 ? (
+          <div className="text-center py-12 rounded-xl border border-slate-200 bg-white">
+            <p className="text-slate-400">
+              No submitted stories yet.
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              Submit a draft to a Popcycle to see it here.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {seriesGroups.map((group, gi) => (
+              <div key={gi}>
+                {group.length > 1 && (
+                  <p className="text-xs font-semibold text-purple-500 uppercase tracking-wider mb-2">
+                    Series ({group.length} parts)
+                  </p>
+                )}
+                <div className="space-y-2">
+                  {group.map((story, si) => (
+                    <div
+                      key={story.id}
+                      className={`rounded-xl border border-slate-200 bg-white p-5 ${group.length > 1 && si > 0 ? "ml-4 border-l-4 border-l-purple-200" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-bold text-slate-800 truncate">
+                              {story.title}
+                            </h3>
+                            <StatusBadge status={story.status} />
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {story.genre.map((g) => (
+                              <span
+                                key={g}
+                                className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700"
+                              >
+                                {g}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {story.word_count.toLocaleString()} words &middot;{" "}
+                            {new Date(story.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Link as sequel */}
+                      {linkingId === story.id ? (
+                        <div className="mt-3 flex items-center gap-2">
+                          <select
+                            className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                            defaultValue={story.predecessor_id ?? ""}
+                            onChange={(e) => handleLink(story.id, e.target.value || null)}
+                          >
+                            <option value="">No predecessor (standalone)</option>
+                            {publishedForLinking
+                              .filter((s) => s.id !== story.id)
+                              .map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.title}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            onClick={() => setLinkingId(null)}
+                            className="px-3 py-2 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setLinkingId(story.id)}
+                          className="mt-2 text-xs font-medium text-purple-500 hover:text-purple-700 transition-colors"
+                        >
+                          Link as sequel to...
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* CTA to submit */}
+      <div className="text-center pt-4">
+        <button
+          onClick={onSubmit}
+          className="px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+        >
+          Submit a Draft to Popcycle
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Draft Editor (inline) ---------- */
+
+function DraftEditor({
+  draft,
+  supabase,
+  inputClass,
+  labelClass,
+  onSave,
+  onCancel,
+  onError,
+}: {
+  draft: DraftStory;
+  supabase: ReturnType<typeof createClient>;
+  inputClass: string;
+  labelClass: string;
+  onSave: (updated: DraftStory) => void;
+  onCancel: () => void;
+  onError: (msg: string) => void;
+}) {
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<StoryDraftInput>({
+    resolver: zodResolver(storyDraftSchema),
+    defaultValues: {
+      title: draft.title,
+      hook: draft.hook ?? "",
+      genre: draft.genre ?? [],
+      mood: draft.mood ?? "",
+      triggers: draft.triggers ?? [],
+      content: draft.content ?? "",
+      ai_assisted: draft.ai_assisted,
+    },
+  });
+
+  const contentValue = watch("content") ?? "";
+  const wordCount = contentValue ? countWords(contentValue) : 0;
+  const hookValue = watch("hook") ?? "";
+
+  async function onSubmitDraft(data: StoryDraftInput) {
+    const wc = countWords(data.content ?? "");
+
+    const { data: updated, error } = await supabase
+      .from("stories")
+      .update({
+        title: data.title,
+        hook: data.hook ?? "",
+        genre: data.genre ?? [],
+        mood: data.mood || null,
+        triggers: data.triggers ?? [],
+        content: data.content ?? "",
+        word_count: wc,
+        ai_assisted: data.ai_assisted ?? false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", draft.id)
+      .select("*")
+      .single();
+
+    if (error || !updated) {
+      onError(error?.message ?? "Failed to save draft.");
+      return;
+    }
+
+    onSave(updated as DraftStory);
+  }
+
+  return (
+    <div className="rounded-xl border-2 border-purple-300 bg-white p-6">
+      <form onSubmit={handleSubmit(onSubmitDraft)} className="space-y-5">
+        {/* Title */}
+        <div>
+          <label className={labelClass}>Title</label>
+          <input
+            type="text"
+            {...register("title")}
+            className={inputClass}
+            placeholder="Story title"
+            maxLength={STORY_LIMITS.titleMaxLength}
+          />
+          {errors.title && (
+            <p className="mt-1 text-sm text-red-500">{errors.title.message}</p>
+          )}
+        </div>
+
+        {/* Hook */}
+        <div>
+          <label className={labelClass}>Hook</label>
+          <textarea
+            rows={2}
+            {...register("hook")}
+            className={inputClass + " resize-none"}
+            placeholder="A compelling one-liner..."
+            maxLength={STORY_LIMITS.hookMaxLength}
+          />
+          <div className="mt-1 flex justify-between text-xs text-slate-400">
+            {errors.hook ? (
+              <p className="text-red-500">{errors.hook.message}</p>
+            ) : (
+              <span />
+            )}
+            <span>
+              {hookValue.length}/{STORY_LIMITS.hookMaxLength}
+            </span>
+          </div>
+        </div>
+
+        {/* Genre (multi-select, max 3) */}
+        <div>
+          <label className={labelClass}>
+            Genre{" "}
+            <span className="text-slate-400 font-normal">
+              (up to {MAX_GENRES_PER_STORY})
+            </span>
+          </label>
+          <Controller
+            name="genre"
+            control={control}
+            render={({ field }) => (
+              <div className="flex flex-wrap gap-2 mt-1">
+                {GENRES.map((g) => {
+                  const selected = field.value?.includes(g);
+                  const atMax =
+                    (field.value?.length ?? 0) >= MAX_GENRES_PER_STORY && !selected;
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      disabled={atMax}
+                      onClick={() => {
+                        const current = field.value ?? [];
+                        field.onChange(
+                          selected
+                            ? current.filter((x) => x !== g)
+                            : [...current, g]
+                        );
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        selected
+                          ? "bg-purple-100 border-purple-400 text-purple-700"
+                          : atMax
+                            ? "border-slate-100 text-slate-300 cursor-not-allowed"
+                            : "border-slate-200 text-slate-500 hover:border-slate-300"
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          />
+          {errors.genre && (
+            <p className="mt-1 text-sm text-red-500">{errors.genre.message}</p>
+          )}
+        </div>
+
+        {/* Mood */}
+        <div>
+          <label className={labelClass}>
+            Mood <span className="text-slate-400 font-normal">(optional)</span>
+          </label>
+          <select {...register("mood")} className={inputClass}>
+            <option value="">None</option>
+            {MOODS.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Trigger Warnings */}
+        <div>
+          <label className={labelClass}>
+            Trigger Warnings{" "}
+            <span className="text-slate-400 font-normal">(select all that apply)</span>
+          </label>
+          <Controller
+            name="triggers"
+            control={control}
+            render={({ field }) => (
+              <div className="flex flex-wrap gap-2 mt-1">
+                {TRIGGER_WARNINGS.map((tw) => {
+                  const selected = field.value?.includes(tw);
+                  return (
+                    <button
+                      key={tw}
+                      type="button"
+                      onClick={() => {
+                        const current = field.value ?? [];
+                        field.onChange(
+                          selected
+                            ? current.filter((t) => t !== tw)
+                            : [...current, tw]
+                        );
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        selected
+                          ? "bg-red-50 border-red-300 text-red-600"
+                          : "border-slate-200 text-slate-400 hover:border-slate-300"
+                      }`}
+                    >
+                      {tw}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          />
+        </div>
+
+        {/* Content */}
+        <div>
+          <label className={labelClass}>Story Content</label>
+          <textarea
+            rows={14}
+            {...register("content")}
+            className={inputClass + " resize-y font-mono text-sm leading-relaxed"}
+            placeholder="Write your story here..."
+          />
+          <div className="mt-1 flex justify-between text-xs text-slate-400">
+            {errors.content ? (
+              <p className="text-red-500">{errors.content.message}</p>
+            ) : (
+              <span />
+            )}
+            <span
+              className={
+                wordCount < STORY_LIMITS.minWords
+                  ? "text-amber-500"
+                  : wordCount > STORY_LIMITS.maxWords
+                    ? "text-red-500"
+                    : "text-green-500"
+              }
+            >
+              {wordCount.toLocaleString()} words
+            </span>
+          </div>
+        </div>
+
+        {/* AI-Assisted */}
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <input
+            id={`ai-${draft.id}`}
+            type="checkbox"
+            {...register("ai_assisted")}
+            className="mt-0.5 accent-amber-600 w-4 h-4"
+          />
+          <label htmlFor={`ai-${draft.id}`} className="text-sm text-slate-700 cursor-pointer">
+            <span className="font-semibold text-amber-700">AI-Assisted</span>
+            <span className="block mt-0.5 text-xs text-slate-500">
+              Check if AI tools were used in writing this story.
+            </span>
+          </label>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex-1 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? "Saving..." : "Save Draft"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ====================================================================
+   TAB: Submit (4-step flow)
    ==================================================================== */
 
 function SubmitTab({
@@ -562,53 +1275,83 @@ function SubmitTab({
   popcycle: Popcycle | null;
   supabase: ReturnType<typeof createClient>;
 }) {
-  const [preview, setPreview] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [selectedPrompt, setSelectedPrompt] = useState<string>("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [paymentPending, setPaymentPending] = useState(false);
+
+  // Step data
+  const [drafts, setDrafts] = useState<DraftStory[]>([]);
+  const [publishedStories, setPublishedStories] = useState<DraftStory[]>([]);
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+  const [selectedPrompt, setSelectedPrompt] = useState<string>("");
+  const [predecessorId, setPredecessorId] = useState<string | null>(null);
+  const [loadingDrafts, setLoadingDrafts] = useState(true);
 
   const isOpen =
     popcycle &&
     popcycle.status === "submissions_open" &&
     new Date(popcycle.submissions_close_at) > new Date();
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    watch,
-    formState: { errors, isSubmitting },
-  } = useForm<StorySubmissionInput>({
-    resolver: zodResolver(storySubmissionSchema),
-    defaultValues: {
-      triggers: [],
-      popcycle_id: popcycle?.id ?? "",
-    },
-  });
-
-  const hookValue = watch("hook") ?? "";
-  const contentValue = watch("content") ?? "";
-  const wordCount = contentValue ? countWords(contentValue) : 0;
   const hasCredits = (user?.entry_credits ?? 0) > 0;
+  const selectedDraft = drafts.find((d) => d.id === selectedDraftId) ?? null;
 
-  async function onSubmit(data: StorySubmissionInput) {
+  // Load eligible drafts
+  useEffect(() => {
+    async function load() {
+      if (!user) return;
+
+      const [{ data: draftData }, { data: pubData }] = await Promise.all([
+        supabase
+          .from("stories")
+          .select("*")
+          .eq("author_id", user.id)
+          .is("popcycle_id", null)
+          .eq("status", "draft")
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("stories")
+          .select("*")
+          .eq("author_id", user.id)
+          .not("popcycle_id", "is", null)
+          .in("status", ["published", "approved", "pending_review"])
+          .order("created_at", { ascending: false }),
+      ]);
+
+      setDrafts((draftData as DraftStory[]) ?? []);
+      setPublishedStories((pubData as DraftStory[]) ?? []);
+      setLoadingDrafts(false);
+    }
+    load();
+  }, [user, supabase]);
+
+  // Check if a draft is complete enough to submit
+  function isDraftComplete(d: DraftStory): boolean {
+    const wc = d.word_count ?? 0;
+    return wc >= 1000 && !!d.hook && (d.genre?.length ?? 0) >= 1;
+  }
+
+  // Handle final submission
+  async function handleConfirmSubmit() {
     setSubmitError(null);
 
+    if (!selectedDraft || !popcycle || !selectedPrompt) return;
+
     try {
-      // Get current user
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
       if (!authUser) {
         setSubmitError("You must be logged in to submit.");
         return;
       }
 
-      // Check if user already submitted to this popcycle
+      // Check existing submission
       const { data: existing } = await supabase
         .from("stories")
         .select("id")
         .eq("author_id", authUser.id)
-        .eq("popcycle_id", data.popcycle_id)
+        .eq("popcycle_id", popcycle.id)
         .not("status", "eq", "rejected")
         .maybeSingle();
 
@@ -617,40 +1360,34 @@ function SubmitTab({
         return;
       }
 
-      // Split content into 5 sections
-      const sections = splitIntoSections(data.content, 5);
+      // Split content into sections
+      const content = selectedDraft.content ?? "";
+      const sections = splitIntoSections(content, 5);
+      const wc = countWords(content);
 
-      // Insert story as draft first
-      const { data: story, error: insertError } = await supabase
+      // Update story with popcycle_id and sections
+      const { error: updateError } = await supabase
         .from("stories")
-        .insert({
-          author_id: authUser.id,
-          popcycle_id: data.popcycle_id,
-          title: data.title,
-          hook: data.hook,
-          genre: data.genre,
-          mood: data.mood ?? null,
-          triggers: data.triggers ?? [],
+        .update({
+          popcycle_id: popcycle.id,
+          predecessor_id: predecessorId,
           section_1: sections[0] ?? "",
           section_2: sections[1] ?? "",
           section_3: sections[2] ?? "",
           section_4: sections[3] ?? "",
           section_5: sections[4] ?? "",
-          word_count: countWords(data.content),
+          word_count: wc,
           status: "draft",
-          ai_assisted: data.ai_assisted ?? false,
         })
-        .select("id")
-        .single();
+        .eq("id", selectedDraft.id);
 
-      if (insertError || !story) {
-        setSubmitError(insertError?.message ?? "Failed to save story.");
+      if (updateError) {
+        setSubmitError(updateError.message);
         return;
       }
 
-      // --- Payment path ---
+      // Payment path
       if (hasCredits) {
-        // Deduct 1 entry credit
         const { error: creditError } = await supabase
           .from("users")
           .update({ entry_credits: (user?.entry_credits ?? 1) - 1 })
@@ -661,23 +1398,21 @@ function SubmitTab({
           return;
         }
 
-        // Move story to pending_review
         await supabase
           .from("stories")
           .update({ status: "pending_review" })
-          .eq("id", story.id);
+          .eq("id", selectedDraft.id);
 
         setSubmitSuccess(true);
       } else {
-        // Stripe Checkout redirect flow
         setPaymentPending(true);
 
         const res = await fetch("/api/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            popcycle_id: data.popcycle_id,
-            story_id: story.id,
+            popcycle_id: popcycle.id,
+            story_id: selectedDraft.id,
           }),
         });
 
@@ -688,9 +1423,7 @@ function SubmitTab({
           return;
         }
 
-        // Redirect to Stripe Checkout — webhook will update story to pending_review on success
         window.location.href = result.url;
-        return;
       }
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "An unexpected error occurred.");
@@ -719,7 +1452,7 @@ function SubmitTab({
     return (
       <div className="max-w-2xl mx-auto">
         <div className="text-center py-16 rounded-xl border border-green-200 bg-green-50">
-          <div className="text-5xl mb-4">🎉</div>
+          <div className="text-5xl mb-4">&#127881;</div>
           <h2 className="text-xl font-bold text-slate-800 mb-2">Story Submitted!</h2>
           <p className="text-sm text-slate-500 max-w-md mx-auto">
             Your story is now under review. You&apos;ll be notified once it&apos;s approved and published.
@@ -729,30 +1462,55 @@ function SubmitTab({
     );
   }
 
-  const inputClass =
-    "w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-shadow";
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
-  const errorClass = "mt-1 text-sm text-red-500";
+  // Step indicator
+  const steps = [
+    { num: 1, label: "Pick Draft" },
+    { num: 2, label: "Pick Prompt" },
+    { num: 3, label: "Link Sequel" },
+    { num: 4, label: "Confirm" },
+  ];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
-            Submit Your Story
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Popcycle: {popcycle.title} &middot; Closes{" "}
-            {new Date(popcycle.submissions_close_at).toLocaleDateString()}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setPreview(!preview)}
-          className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
-        >
-          {preview ? "Edit" : "Preview"}
-        </button>
+      <div>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
+          Submit Your Story
+        </h1>
+        <p className="mt-1 text-sm text-slate-400">
+          Popcycle: {popcycle.title} &middot; Closes{" "}
+          {new Date(popcycle.submissions_close_at).toLocaleDateString()}
+        </p>
+      </div>
+
+      {/* Step indicator */}
+      <div className="flex items-center gap-2">
+        {steps.map((s, i) => (
+          <div key={s.num} className="flex items-center gap-2">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+                step >= s.num
+                  ? "bg-purple-600 text-white"
+                  : "bg-slate-100 text-slate-400"
+              }`}
+            >
+              {s.num}
+            </div>
+            <span
+              className={`text-xs font-medium hidden sm:inline ${
+                step >= s.num ? "text-purple-600" : "text-slate-400"
+              }`}
+            >
+              {s.label}
+            </span>
+            {i < steps.length - 1 && (
+              <div
+                className={`w-8 h-0.5 rounded-full ${
+                  step > s.num ? "bg-purple-400" : "bg-slate-200"
+                }`}
+              />
+            )}
+          </div>
+        ))}
       </div>
 
       {submitError && (
@@ -761,280 +1519,270 @@ function SubmitTab({
         </div>
       )}
 
-      {preview ? (
-        <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-6">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">
-              {watch("title") || "Untitled"}
-            </h2>
-            <p className="mt-2 text-slate-500 italic">
-              {hookValue || "No hook yet..."}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {watch("genre") && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-500 text-white">
-                {watch("genre")}
-              </span>
-            )}
-            {watch("mood") && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium border border-slate-200 text-slate-600">
-                {watch("mood")}
-              </span>
-            )}
-            {(watch("triggers") ?? []).map((tw: string) => (
-              <span
-                key={tw}
-                className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600"
-              >
-                {tw}
-              </span>
-            ))}
-          </div>
-          <div className="prose prose-sm max-w-none whitespace-pre-wrap text-slate-700">
-            {contentValue || "Start writing to see a preview..."}
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          {/* Prompt Selection */}
-          <div>
-            <label className={labelClass}>
-              Choose a Prompt
-            </label>
-            <p className="text-xs text-slate-400 mb-2">{popcycle.prompt_theme}</p>
+      {/* Step 1: Pick a draft */}
+      {step === 1 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-slate-800">
+            Step 1: Pick a Draft
+          </h2>
+          <p className="text-sm text-slate-500">
+            Choose a complete draft to submit. It must have content (at least 1,000 words), a hook, and at least one genre.
+          </p>
+
+          {loadingDrafts ? (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : drafts.length === 0 ? (
+            <div className="text-center py-12 rounded-xl border border-slate-200 bg-white">
+              <p className="text-slate-400">
+                No drafts found. Go to the My Stories tab to create one.
+              </p>
+            </div>
+          ) : (
             <div className="space-y-2">
-              {([
-                { key: "prompt_1", value: popcycle.prompt_1 },
-                { key: "prompt_2", value: popcycle.prompt_2 },
-                { key: "prompt_3", value: popcycle.prompt_3 },
-                { key: "prompt_4", value: popcycle.prompt_4 },
-                { key: "prompt_5", value: popcycle.prompt_5 },
-              ] as const)
-                .filter((p) => p.value)
-                .map((p, i) => (
-                  <label
-                    key={p.key}
-                    className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
-                      selectedPrompt === p.key
+              {drafts.map((d) => {
+                const complete = isDraftComplete(d);
+                const isSelected = selectedDraftId === d.id;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    disabled={!complete}
+                    onClick={() => setSelectedDraftId(d.id)}
+                    className={`w-full text-left rounded-xl border p-4 transition-colors ${
+                      isSelected
                         ? "border-purple-400 bg-purple-50"
-                        : "border-slate-200 bg-white hover:border-slate-300"
+                        : complete
+                          ? "border-slate-200 bg-white hover:border-slate-300"
+                          : "border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed"
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="selected_prompt"
-                      value={p.key}
-                      checked={selectedPrompt === p.key}
-                      onChange={() => setSelectedPrompt(p.key)}
-                      className="mt-0.5 accent-purple-600"
-                    />
-                    <span className="text-sm text-slate-700">
-                      <span className="font-medium text-slate-500 mr-1">{i + 1}.</span>
-                      {p.value}
-                    </span>
-                  </label>
-                ))}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-bold text-slate-800 truncate">
+                          {d.title || "Untitled"}
+                        </h3>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {d.genre.map((g) => (
+                            <span
+                              key={g}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700"
+                            >
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {d.word_count.toLocaleString()} words
+                          {!d.hook && " \u00b7 Missing hook"}
+                          {(d.genre?.length ?? 0) === 0 && " \u00b7 Missing genre"}
+                          {d.word_count < 1000 && " \u00b7 Below 1,000 words"}
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <span className="text-purple-600 font-bold text-lg">&#10003;</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            {!selectedPrompt && (
-              <p className="mt-1 text-sm text-amber-500">Please select a prompt before submitting.</p>
-            )}
-          </div>
+          )}
 
-          {/* Title */}
-          <div>
-            <label htmlFor="w-title" className={labelClass}>
-              Title
-            </label>
-            <input
-              id="w-title"
-              type="text"
-              {...register("title")}
-              className={inputClass}
-              placeholder="Your story title"
-              maxLength={STORY_LIMITS.titleMaxLength}
-            />
-            {errors.title && <p className={errorClass}>{errors.title.message}</p>}
+          <div className="flex justify-end">
+            <button
+              disabled={!selectedDraftId}
+              onClick={() => setStep(2)}
+              className="px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next: Pick Prompt
+            </button>
           </div>
+        </div>
+      )}
 
-          {/* Hook */}
-          <div>
-            <label htmlFor="w-hook" className={labelClass}>
-              Hook
-            </label>
-            <textarea
-              id="w-hook"
-              rows={3}
-              {...register("hook")}
-              className={inputClass + " resize-none"}
-              placeholder="A compelling one-liner to draw readers in..."
-              maxLength={STORY_LIMITS.hookMaxLength}
-            />
-            <div className="mt-1 flex justify-between text-xs text-slate-400">
-              {errors.hook ? (
-                <p className="text-red-500">{errors.hook.message}</p>
-              ) : (
-                <span />
-              )}
-              <span
-                className={
-                  hookValue.length > STORY_LIMITS.hookMaxLength * 0.9
-                    ? "text-red-500"
-                    : ""
-                }
-              >
-                {hookValue.length}/{STORY_LIMITS.hookMaxLength}
-              </span>
-            </div>
-          </div>
+      {/* Step 2: Pick a Popcycle prompt */}
+      {step === 2 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-slate-800">
+            Step 2: Pick a Prompt
+          </h2>
+          <p className="text-sm text-slate-500">{popcycle.prompt_theme}</p>
 
-          {/* Genre */}
-          <div>
-            <label htmlFor="w-genre" className={labelClass}>
-              Genre
-            </label>
-            <select id="w-genre" {...register("genre")} className={inputClass}>
-              <option value="">Select a genre</option>
-              {GENRES.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
+          <div className="space-y-2">
+            {([
+              { key: "prompt_1", value: popcycle.prompt_1 },
+              { key: "prompt_2", value: popcycle.prompt_2 },
+              { key: "prompt_3", value: popcycle.prompt_3 },
+              { key: "prompt_4", value: popcycle.prompt_4 },
+              { key: "prompt_5", value: popcycle.prompt_5 },
+            ] as const)
+              .filter((p) => p.value)
+              .map((p, i) => (
+                <label
+                  key={p.key}
+                  className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                    selectedPrompt === p.key
+                      ? "border-purple-400 bg-purple-50"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="selected_prompt"
+                    value={p.key}
+                    checked={selectedPrompt === p.key}
+                    onChange={() => setSelectedPrompt(p.key)}
+                    className="mt-0.5 accent-purple-600"
+                  />
+                  <span className="text-sm text-slate-700">
+                    <span className="font-medium text-slate-500 mr-1">{i + 1}.</span>
+                    {p.value}
+                  </span>
+                </label>
               ))}
-            </select>
-            {errors.genre && <p className={errorClass}>{errors.genre.message}</p>}
           </div>
 
-          {/* Mood */}
-          <div>
-            <label htmlFor="w-mood" className={labelClass}>
-              Mood{" "}
-              <span className="text-slate-400 font-normal">(optional)</span>
-            </label>
-            <select id="w-mood" {...register("mood")} className={inputClass}>
-              <option value="">None</option>
-              {MOODS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+          <div className="flex justify-between">
+            <button
+              onClick={() => setStep(1)}
+              className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+            >
+              Back
+            </button>
+            <button
+              disabled={!selectedPrompt}
+              onClick={() => setStep(3)}
+              className="px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next: Link Sequel
+            </button>
           </div>
+        </div>
+      )}
 
-          {/* Trigger Warnings */}
-          <div>
-            <label className={labelClass}>
-              Trigger Warnings{" "}
-              <span className="text-slate-400 font-normal">
-                (select all that apply)
-              </span>
-            </label>
-            <Controller
-              name="triggers"
-              control={control}
-              render={({ field }) => (
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {TRIGGER_WARNINGS.map((tw) => {
-                    const selected = field.value?.includes(tw);
-                    return (
-                      <button
-                        key={tw}
-                        type="button"
-                        onClick={() => {
-                          const current = field.value ?? [];
-                          field.onChange(
-                            selected
-                              ? current.filter((t) => t !== tw)
-                              : [...current, tw]
-                          );
-                        }}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                          selected
-                            ? "bg-red-50 border-red-300 text-red-600"
-                            : "border-slate-200 text-slate-400 hover:border-slate-300"
-                        }`}
-                      >
-                        {tw}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            />
-          </div>
+      {/* Step 3: Link as sequel (optional) */}
+      {step === 3 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-slate-800">
+            Step 3: Link as Sequel{" "}
+            <span className="text-slate-400 font-normal text-sm">(optional)</span>
+          </h2>
+          <p className="text-sm text-slate-500">
+            If this story is a sequel, link it to the predecessor.
+          </p>
 
-          {/* Content */}
-          <div>
-            <label htmlFor="w-content" className={labelClass}>
-              Story Content
-            </label>
-            <textarea
-              id="w-content"
-              rows={16}
-              {...register("content")}
-              className={
-                inputClass + " resize-y font-mono text-sm leading-relaxed"
-              }
-              placeholder="Write your story here... It will be automatically split into 5 sections for readers."
-            />
-            <div className="mt-1 flex justify-between text-xs text-slate-400">
-              {errors.content ? (
-                <p className="text-red-500">{errors.content.message}</p>
-              ) : (
-                <span />
-              )}
-              <span
-                className={
-                  wordCount < STORY_LIMITS.minWords
-                    ? "text-amber-500"
-                    : wordCount > STORY_LIMITS.maxWords
-                      ? "text-red-500"
-                      : "text-green-500"
-                }
-              >
-                {wordCount.toLocaleString()} /{" "}
-                {STORY_LIMITS.minWords.toLocaleString()}-
-                {STORY_LIMITS.maxWords.toLocaleString()} words
-              </span>
-            </div>
-          </div>
-
-          <input type="hidden" {...register("popcycle_id")} />
-
-          {/* AI-Assisted Disclosure */}
-          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <input
-              id="w-ai-assisted"
-              type="checkbox"
-              {...register("ai_assisted")}
-              className="mt-0.5 accent-amber-600 w-4 h-4"
-            />
-            <label htmlFor="w-ai-assisted" className="text-sm text-slate-700 cursor-pointer">
-              <span className="font-semibold text-amber-700">AI-Assisted</span>
-              <span className="block mt-0.5 text-xs text-slate-500">
-                Check this if AI tools were used in writing this story. Self-disclosure carries no scoring penalty — honesty is rewarded. Stories detected as AI-generated without disclosure will have prior pops halved.
-              </span>
-            </label>
-          </div>
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isSubmitting || paymentPending || !selectedPrompt}
-            className="w-full py-3.5 rounded-xl bg-purple-600 text-white font-semibold text-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          <select
+            value={predecessorId ?? ""}
+            onChange={(e) => setPredecessorId(e.target.value || null)}
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-shadow"
           >
-            {paymentPending
-              ? "Redirecting to payment..."
-              : isSubmitting
-                ? "Submitting..."
+            <option value="">Standalone (no predecessor)</option>
+            {publishedStories.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
+          </select>
+
+          <div className="flex justify-between">
+            <button
+              onClick={() => setStep(2)}
+              className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+            >
+              Back
+            </button>
+            <button
+              onClick={() => setStep(4)}
+              className="px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+            >
+              Next: Confirm
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 4: Confirm & pay */}
+      {step === 4 && selectedDraft && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-slate-800">
+            Step 4: Confirm &amp; Pay
+          </h2>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-500">Story</span>
+              <span className="text-sm font-bold text-slate-800">
+                {selectedDraft.title}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-500">Genre</span>
+              <span className="text-sm text-slate-800">
+                {selectedDraft.genre.join(", ")}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-500">Word Count</span>
+              <span className="text-sm text-slate-800">
+                {selectedDraft.word_count.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-500">Prompt</span>
+              <span className="text-sm text-slate-800">
+                {selectedPrompt.replace("_", " ")}
+              </span>
+            </div>
+            {predecessorId && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-500">Sequel to</span>
+                <span className="text-sm text-slate-800">
+                  {publishedStories.find((s) => s.id === predecessorId)?.title ?? "Unknown"}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-slate-500">AI-Assisted</span>
+              <span className="text-sm text-slate-800">
+                {selectedDraft.ai_assisted ? "Yes" : "No"}
+              </span>
+            </div>
+            <hr className="border-slate-100" />
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-700">Payment</span>
+              <span className="text-sm font-bold text-purple-600">
+                {hasCredits
+                  ? "1 Entry Credit"
+                  : formatCents(ENTRY_FEE_CENTS)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-between">
+            <button
+              onClick={() => setStep(3)}
+              className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
+            >
+              Back
+            </button>
+            <button
+              onClick={handleConfirmSubmit}
+              disabled={paymentPending}
+              className="px-6 py-3 rounded-xl bg-purple-600 text-white font-semibold text-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {paymentPending
+                ? "Redirecting to payment..."
                 : hasCredits
                   ? "Use Entry Credit to Submit"
                   : `Pay ${formatCents(ENTRY_FEE_CENTS)} to Submit`}
-          </button>
+            </button>
+          </div>
           <p className="text-center text-xs text-slate-400">
-            Your story will be reviewed before publishing. Payment is
-            non-refundable.
+            Your story will be reviewed before publishing. Payment is non-refundable.
           </p>
-        </form>
+        </div>
       )}
     </div>
   );
@@ -1900,6 +2648,148 @@ function SettingsTab({
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+/* ====================================================================
+   TAB: Garden
+   ==================================================================== */
+
+interface GardenStory {
+  id: string;
+  story_id: string;
+  created_at: string;
+  stories: {
+    id: string;
+    title: string;
+    hook: string | null;
+    genre: string[];
+    created_at: string;
+    users: {
+      pen_name: string;
+    } | null;
+  } | null;
+}
+
+function GardenTab({
+  supabase,
+  setMode,
+}: {
+  supabase: ReturnType<typeof createClient>;
+  setMode: (mode: "reading" | "writing") => void;
+}) {
+  const [gardenItems, setGardenItems] = useState<GardenStory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("poppy_gardens")
+        .select("id, story_id, created_at, stories(id, title, hook, genre, created_at, users!author_id(pen_name))")
+        .eq("reader_id", user.id)
+        .order("created_at", { ascending: false });
+
+      setGardenItems((data as unknown as GardenStory[]) ?? []);
+      setLoading(false);
+    }
+    load();
+  }, [supabase]);
+
+  async function handleRemove(gardenId: string) {
+    setRemovingId(gardenId);
+    const { error } = await supabase.from("poppy_gardens").delete().eq("id", gardenId);
+    if (!error) {
+      setGardenItems((prev) => prev.filter((g) => g.id !== gardenId));
+    }
+    setRemovingId(null);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
+          Your Garden
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Stories you&apos;ve saved to revisit.
+        </p>
+      </div>
+
+      {gardenItems.length === 0 ? (
+        <div className="text-center py-16 rounded-xl border border-slate-200 bg-white">
+          <div className="text-4xl mb-4">&#127803;</div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">
+            Your garden is empty.
+          </h2>
+          <p className="text-sm text-slate-400 max-w-md mx-auto">
+            When you find a story you love while reading, add it to your garden to revisit it later.
+          </p>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-4">
+          {gardenItems.map((item) => {
+            const story = item.stories;
+            if (!story) return null;
+
+            return (
+              <div
+                key={item.id}
+                className="rounded-xl border border-slate-200 bg-white p-5 hover:border-green-300 transition-colors"
+              >
+                <h3 className="text-base font-bold text-slate-800 truncate">
+                  {story.title}
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  by @{story.users?.pen_name ?? "unknown"}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {story.genre.map((g) => (
+                    <span
+                      key={g}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700"
+                    >
+                      {g}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-slate-400">
+                  Added {new Date(item.created_at).toLocaleDateString()}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => setMode("reading")}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                  >
+                    Read Again
+                  </button>
+                  <button
+                    onClick={() => handleRemove(item.id)}
+                    disabled={removingId === item.id}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold border border-red-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {removingId === item.id ? "Removing..." : "Remove from Garden"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
