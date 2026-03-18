@@ -30,6 +30,35 @@ export async function updateUserRole(userId: string, newRole: UserRole) {
   return { success: true };
 }
 
+export async function addEntryCredits(userId: string, amount: number) {
+  if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+    return { error: "Amount must be an integer between 1 and 100." };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: user, error: fetchError } = await admin
+    .from("users")
+    .select("entry_credits")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError || !user) {
+    return { error: `Failed to fetch user: ${fetchError?.message ?? "Not found"}` };
+  }
+
+  const { error } = await admin
+    .from("users")
+    .update({ entry_credits: (user.entry_credits ?? 0) + amount })
+    .eq("id", userId);
+
+  if (error) {
+    return { error: `Failed to add credits: ${error.message}` };
+  }
+
+  return { success: true, newBalance: (user.entry_credits ?? 0) + amount };
+}
+
 export async function toggleWatchlist(
   userId: string,
   addToWatchlist: boolean,

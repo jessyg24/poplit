@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { UserRole } from "@poplit/core/types";
 import {
   updateUserRole,
+  addEntryCredits,
   toggleWatchlist,
   issueStrike,
   getCurrentAdminId,
@@ -66,8 +67,7 @@ export function EditRoleButton({
           onChange={(e) => setRole(e.target.value as UserRole)}
           className="mb-3 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)]"
         >
-          <option value="reader">Reader</option>
-          <option value="writer">Writer</option>
+          <option value="user">User</option>
           <option value="admin">Admin</option>
         </select>
 
@@ -197,6 +197,93 @@ export function IssueStrikeButton({
             className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
             {isPending ? "Issuing..." : "Issue Strike"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Add Entry Credits ─────────────────────────────────────────────────────
+
+export function AddCreditsButton({
+  userId,
+  penName,
+}: {
+  userId: string;
+  penName: string;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState(1);
+  const [isPending, startTransition] = useTransition();
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+
+  function handleSubmit() {
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await addEntryCredits(userId, amount);
+      if (result.error) {
+        setFeedback({ type: "error", msg: result.error });
+      } else {
+        setFeedback({ type: "success", msg: `Added ${amount} credit${amount !== 1 ? "s" : ""}. New balance: ${result.newBalance}` });
+        setTimeout(() => {
+          setOpen(false);
+          setAmount(1);
+          setFeedback(null);
+          router.refresh();
+        }, 1200);
+      }
+    });
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-xs text-green-600 hover:underline"
+      >
+        + Credits
+      </button>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-80 rounded-lg bg-[var(--color-background)] border border-[var(--color-border)] p-5 shadow-xl">
+        <h3 className="mb-1 text-sm font-semibold text-[var(--color-text)]">Add Entry Credits</h3>
+        <p className="mb-3 text-xs text-[var(--color-text-secondary)]">For: {penName}</p>
+
+        <label className="mb-1 block text-xs font-medium text-[var(--color-text)]">Credits to add</label>
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={amount}
+          onChange={(e) => setAmount(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+          className="mb-3 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)]"
+        />
+
+        {feedback && (
+          <p className={`mb-2 text-xs ${feedback.type === "error" ? "text-red-500" : "text-green-600"}`}>
+            {feedback.msg}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => { setOpen(false); setFeedback(null); setAmount(1); }}
+            className="rounded-md px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-surface)]"
+            disabled={isPending}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isPending}
+            className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {isPending ? "Adding..." : `Add ${amount} Credit${amount !== 1 ? "s" : ""}`}
           </button>
         </div>
       </div>

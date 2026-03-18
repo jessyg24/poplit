@@ -23,6 +23,26 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
 
   switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const storyId = session.metadata?.story_id;
+      const paymentIntentId = typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id ?? null;
+
+      if (storyId) {
+        await supabase
+          .from("stories")
+          .update({
+            status: "pending_review",
+            payment_intent_id: paymentIntentId,
+          })
+          .eq("id", storyId)
+          .eq("status", "draft"); // only promote drafts
+      }
+      break;
+    }
+
     case "payment_intent.succeeded": {
       const pi = event.data.object as Stripe.PaymentIntent;
       const storyId = pi.metadata.story_id;
@@ -30,7 +50,8 @@ export async function POST(request: NextRequest) {
         await supabase
           .from("stories")
           .update({ status: "pending_review", payment_intent_id: pi.id })
-          .eq("id", storyId);
+          .eq("id", storyId)
+          .eq("status", "draft");
       }
       break;
     }

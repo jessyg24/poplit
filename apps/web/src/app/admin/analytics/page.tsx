@@ -13,9 +13,8 @@ export default async function AnalyticsPage() {
   ]);
 
   // Role breakdown
-  const [readersRes, writersRes, adminsRes] = await Promise.all([
-    admin.from("users").select("id", { count: "exact", head: true }).eq("role", "reader"),
-    admin.from("users").select("id", { count: "exact", head: true }).eq("role", "writer"),
+  const [usersRoleRes, adminsRes] = await Promise.all([
+    admin.from("users").select("id", { count: "exact", head: true }).eq("role", "user"),
     admin.from("users").select("id", { count: "exact", head: true }).eq("role", "admin"),
   ]);
 
@@ -30,8 +29,7 @@ export default async function AnalyticsPage() {
 
   const metrics = {
     totalUsers: usersRes.count ?? 0,
-    readers: readersRes.count ?? 0,
-    writers: writersRes.count ?? 0,
+    users: usersRoleRes.count ?? 0,
     admins: adminsRes.count ?? 0,
     totalStories: storiesRes.count ?? 0,
     approved: approvedRes.count ?? 0,
@@ -60,8 +58,7 @@ export default async function AnalyticsPage() {
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <h2 className="mb-4 text-lg font-semibold text-[var(--color-text)]">User Breakdown</h2>
           <div className="space-y-3">
-            <BarRow label="Readers" value={metrics.readers} total={metrics.totalUsers} color="bg-blue-500" />
-            <BarRow label="Writers" value={metrics.writers} total={metrics.totalUsers} color="bg-purple-500" />
+            <BarRow label="Users" value={metrics.users} total={metrics.totalUsers} color="bg-blue-500" />
             <BarRow label="Admins" value={metrics.admins} total={metrics.totalUsers} color="bg-orange-500" />
           </div>
         </div>

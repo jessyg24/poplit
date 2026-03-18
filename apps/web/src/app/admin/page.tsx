@@ -35,7 +35,7 @@ export default async function AdminDashboardPage() {
     revenueData,
   ] = await Promise.all([
     admin.from("users").select("id", { count: "exact", head: true }),
-    admin.from("users").select("id", { count: "exact", head: true }).eq("role", "writer"),
+    admin.from("users").select("id", { count: "exact", head: true }).eq("role", "admin"),
     admin.from("stories").select("id", { count: "exact", head: true }),
     admin.from("stories").select("id", { count: "exact", head: true }).eq("status", "pending_review"),
     admin.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
@@ -50,7 +50,7 @@ export default async function AdminDashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Total Users" value={usersRes.count ?? 0} />
-        <KpiCard label="Active Writers" value={writersRes.count ?? 0} />
+        <KpiCard label="Admins" value={writersRes.count ?? 0} />
         <KpiCard
           label="Active Popcycles"
           value={popcyclesRes.count ?? 0}

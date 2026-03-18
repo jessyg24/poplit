@@ -20,7 +20,7 @@ import {
   PRIZE_DISTRIBUTION,
   SUBSCRIPTION_TIERS,
 } from "@poplit/core/constants";
-import { countWords, formatCents, formatCountdown } from "@poplit/core/utils";
+import { countWords, formatCents, formatCountdown, splitIntoSections } from "@poplit/core/utils";
 
 /* ---------- types ---------- */
 
@@ -503,6 +503,8 @@ function SubmitTab({
   const [preview, setPreview] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<string>("");
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
 
   const isOpen =
     popcycle &&
@@ -530,9 +532,107 @@ function SubmitTab({
 
   async function onSubmit(data: StorySubmissionInput) {
     setSubmitError(null);
-    // TODO: Integrate with Stripe payment flow
-    console.log("Submit story:", data);
-    alert("Payment flow coming soon! Story data logged to console.");
+
+    try {
+      // Get current user
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        setSubmitError("You must be logged in to submit.");
+        return;
+      }
+
+      // Check if user already submitted to this popcycle
+      const { data: existing } = await supabase
+        .from("stories")
+        .select("id")
+        .eq("author_id", authUser.id)
+        .eq("popcycle_id", data.popcycle_id)
+        .not("status", "eq", "rejected")
+        .maybeSingle();
+
+      if (existing) {
+        setSubmitError("You already have a submission for this popcycle.");
+        return;
+      }
+
+      // Split content into 5 sections
+      const sections = splitIntoSections(data.content, 5);
+
+      // Insert story as draft first
+      const { data: story, error: insertError } = await supabase
+        .from("stories")
+        .insert({
+          author_id: authUser.id,
+          popcycle_id: data.popcycle_id,
+          title: data.title,
+          hook: data.hook,
+          genre: data.genre,
+          mood: data.mood ?? null,
+          triggers: data.triggers ?? [],
+          section_1: sections[0] ?? "",
+          section_2: sections[1] ?? "",
+          section_3: sections[2] ?? "",
+          section_4: sections[3] ?? "",
+          section_5: sections[4] ?? "",
+          word_count: countWords(data.content),
+          status: "draft",
+          ai_assisted: data.ai_assisted ?? false,
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !story) {
+        setSubmitError(insertError?.message ?? "Failed to save story.");
+        return;
+      }
+
+      // --- Payment path ---
+      if (hasCredits) {
+        // Deduct 1 entry credit
+        const { error: creditError } = await supabase
+          .from("users")
+          .update({ entry_credits: (user?.entry_credits ?? 1) - 1 })
+          .eq("id", authUser.id);
+
+        if (creditError) {
+          setSubmitError("Failed to deduct entry credit. Please try again.");
+          return;
+        }
+
+        // Move story to pending_review
+        await supabase
+          .from("stories")
+          .update({ status: "pending_review" })
+          .eq("id", story.id);
+
+        setSubmitSuccess(true);
+      } else {
+        // Stripe Checkout redirect flow
+        setPaymentPending(true);
+
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            popcycle_id: data.popcycle_id,
+            story_id: story.id,
+          }),
+        });
+
+        const result = await res.json();
+        if (!res.ok || !result.url) {
+          setSubmitError(result.error ?? "Failed to start payment. Please try again.");
+          setPaymentPending(false);
+          return;
+        }
+
+        // Redirect to Stripe Checkout — webhook will update story to pending_review on success
+        window.location.href = result.url;
+        return;
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "An unexpected error occurred.");
+    }
   }
 
   if (!isOpen) {
@@ -547,6 +647,20 @@ function SubmitTab({
             {popcycle
               ? `The current popcycle "${popcycle.title}" is in the ${popcycle.status.replace(/_/g, " ")} phase. Check back when submissions open.`
               : "There is no active popcycle right now. Check back soon!"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (submitSuccess) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center py-16 rounded-xl border border-green-200 bg-green-50">
+          <div className="text-5xl mb-4">🎉</div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Story Submitted!</h2>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Your story is now under review. You&apos;ll be notified once it&apos;s approved and published.
           </p>
         </div>
       </div>
@@ -843,14 +957,16 @@ function SubmitTab({
           {/* Submit */}
           <button
             type="submit"
-            disabled={isSubmitting || !selectedPrompt}
+            disabled={isSubmitting || paymentPending || !selectedPrompt}
             className="w-full py-3.5 rounded-xl bg-purple-600 text-white font-semibold text-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting
-              ? "Submitting..."
-              : hasCredits
-                ? "Use Entry Credit to Submit"
-                : `Pay ${formatCents(ENTRY_FEE_CENTS)} to Submit`}
+            {paymentPending
+              ? "Redirecting to payment..."
+              : isSubmitting
+                ? "Submitting..."
+                : hasCredits
+                  ? "Use Entry Credit to Submit"
+                  : `Pay ${formatCents(ENTRY_FEE_CENTS)} to Submit`}
           </button>
           <p className="text-center text-xs text-slate-400">
             Your story will be reviewed before publishing. Payment is

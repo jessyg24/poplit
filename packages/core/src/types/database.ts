@@ -1,6 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
-export type UserRole = "reader" | "writer" | "admin";
+export type UserRole = "user" | "admin";
 export type StoryStatus = "draft" | "pending_review" | "ai_flagged" | "approved" | "rejected" | "published" | "archived";
 export type PopcycleStatus = "draft" | "scheduled" | "submissions_open" | "reading_open" | "popoff" | "completed";
 export type PopcycleFormat = "standard" | "flash" | "themed" | "sponsored";

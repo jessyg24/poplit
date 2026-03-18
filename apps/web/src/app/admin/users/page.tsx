@@ -1,10 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@poplit/core/types";
-import { EditRoleButton, IssueStrikeButton, ToggleWatchlistButton } from "./actions";
+import { EditRoleButton, AddCreditsButton, IssueStrikeButton, ToggleWatchlistButton } from "./actions";
 
 const roleColors: Record<UserRole, string> = {
-  reader: "bg-blue-100 text-blue-700",
-  writer: "bg-purple-100 text-purple-700",
+  user: "bg-blue-100 text-blue-700",
   admin: "bg-orange-100 text-orange-700",
 };
 
@@ -23,7 +22,7 @@ export default async function UsersPage({ searchParams }: Props) {
 
   let dbQuery = admin
     .from("users")
-    .select("id, pen_name, email, role, created_at, watch_list")
+    .select("id, pen_name, email, role, entry_credits, created_at, watch_list")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -66,6 +65,7 @@ export default async function UsersPage({ searchParams }: Props) {
               <th className="px-4 py-3 font-medium">Pen Name</th>
               <th className="px-4 py-3 font-medium">Email</th>
               <th className="px-4 py-3 font-medium">Role</th>
+              <th className="px-4 py-3 font-medium">Credits</th>
               <th className="px-4 py-3 font-medium">Watchlist</th>
               <th className="px-4 py-3 font-medium">Joined</th>
               <th className="px-4 py-3 font-medium">Actions</th>
@@ -81,6 +81,7 @@ export default async function UsersPage({ searchParams }: Props) {
                     {user.role}
                   </span>
                 </td>
+                <td className="px-4 py-3 text-[var(--color-text)]">{user.entry_credits ?? 0}</td>
                 <td className="px-4 py-3">
                   {user.watch_list && (
                     <span className="inline-block rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-700">
@@ -92,6 +93,7 @@ export default async function UsersPage({ searchParams }: Props) {
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
                     <EditRoleButton userId={user.id} currentRole={user.role as UserRole} />
+                    <AddCreditsButton userId={user.id} penName={user.pen_name} />
                     <IssueStrikeButton userId={user.id} penName={user.pen_name} />
                     <ToggleWatchlistButton userId={user.id} isWatched={user.watch_list} />
                   </div>
@@ -100,7 +102,7 @@ export default async function UsersPage({ searchParams }: Props) {
             ))}
             {(users ?? []).length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
+                <td colSpan={7} className="px-4 py-8 text-center text-[var(--color-text-secondary)]">
                   No users found.
                 </td>
               </tr>

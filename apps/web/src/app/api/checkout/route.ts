@@ -40,16 +40,32 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id);
   }
 
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: ENTRY_FEE_CENTS,
-    currency: "usd",
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://loresparkbooks.com";
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
     customer: customerId,
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          unit_amount: ENTRY_FEE_CENTS,
+          product_data: {
+            name: "PopLit Entry Fee",
+            description: "One story submission to the current Popcycle",
+          },
+        },
+        quantity: 1,
+      },
+    ],
     metadata: {
       user_id: user.id,
       popcycle_id,
       story_id,
     },
+    success_url: `${siteUrl}/submit/success?story_id=${story_id}`,
+    cancel_url: `${siteUrl}/submit/cancel?story_id=${story_id}`,
   });
 
-  return NextResponse.json({ clientSecret: paymentIntent.client_secret });
+  return NextResponse.json({ url: session.url });
 }

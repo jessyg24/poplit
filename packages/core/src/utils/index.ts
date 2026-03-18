@@ -76,11 +76,11 @@ export function isAdmin(role: string): boolean {
 }
 
 export function isWriter(role: string): boolean {
-  return role === "writer" || role === "admin";
+  return role === "user" || role === "admin";
 }
 
 export function canSubmit(role: string): boolean {
-  return role === "writer" || role === "admin";
+  return role === "user" || role === "admin";
 }
 
 // Scoring utilities
