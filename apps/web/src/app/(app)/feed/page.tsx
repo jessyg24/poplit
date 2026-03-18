@@ -11,16 +11,23 @@ export default function FeedPage() {
   const { mode, setMode } = useModeStore();
   const [hydrated, setHydrated] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClient();
 
-  // Hydrate mode from localStorage on mount
+  // Hydrate mode from localStorage + check admin role
   useEffect(() => {
     const stored = localStorage.getItem("poplit-mode");
     if (stored === "reading" || stored === "writing") {
       setMode(stored);
     }
+    // Check if user is admin
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.app_metadata?.role === "admin") {
+        setIsAdmin(true);
+      }
+    });
     setHydrated(true);
-  }, [setMode]);
+  }, [setMode, supabase.auth]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -39,18 +46,26 @@ export default function FeedPage() {
 
   // Skip chooser if they already have a preference
   if (mode === "reading") {
-    return <ReadingMode />;
+    return <ReadingMode isAdmin={isAdmin} />;
   }
 
   if (mode === "writing") {
-    return <WritingMode />;
+    return <WritingMode isAdmin={isAdmin} />;
   }
 
   // ---------- Intent Chooser ----------
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
-      {/* Logout button */}
-      <div className="absolute top-4 right-4 z-30">
+      {/* Top buttons */}
+      <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+        {isAdmin && (
+          <a
+            href="/admin"
+            className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+          >
+            Admin Dashboard
+          </a>
+        )}
         <button
           onClick={handleLogout}
           disabled={loggingOut}

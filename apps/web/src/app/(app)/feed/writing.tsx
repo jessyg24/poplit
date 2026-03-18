@@ -74,7 +74,7 @@ interface PopoffStory {
 
 /* ---------- component ---------- */
 
-export function WritingMode() {
+export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
   const supabase = createClient();
   const setMode = useModeStore((s) => s.setMode);
 
@@ -237,6 +237,14 @@ export function WritingMode() {
 
             {/* Right actions */}
             <div className="flex items-center gap-2">
+              {isAdmin && (
+                <a
+                  href="/admin"
+                  className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+                >
+                  Admin
+                </a>
+              )}
               <button
                 onClick={() => setMode("reading")}
                 className="px-3 py-1.5 rounded-full text-xs font-medium bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 transition-colors"

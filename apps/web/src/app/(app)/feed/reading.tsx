@@ -38,7 +38,7 @@ interface InProgressStory {
 
 /* ---------- component ---------- */
 
-export function ReadingMode() {
+export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
   const supabase = createClient();
   const setMode = useModeStore((s) => s.setMode);
 
@@ -359,7 +359,15 @@ export function ReadingMode() {
           Switch to Writing
         </button>
       </div>
-      <div className="absolute top-4 right-4 z-30">
+      <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
+        {isAdmin && (
+          <a
+            href="/admin"
+            className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+          >
+            Admin
+          </a>
+        )}
         <button
           onClick={handleLogout}
           disabled={loggingOut}
