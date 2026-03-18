@@ -40,6 +40,9 @@ export interface Database {
           gdpr_consent_at: string | null;
           watch_list: boolean;
           watch_list_reason: string | null;
+          invite_code: string;
+          invited_by: string | null;
+          entry_credits: number;
           created_at: string;
           updated_at: string;
         };

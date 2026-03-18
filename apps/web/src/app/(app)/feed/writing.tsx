@@ -35,6 +35,7 @@ interface UserProfile {
   email: string;
   role: string;
   entry_credits: number;
+  invite_code: string;
   created_at: string;
 }
 
@@ -1452,6 +1453,78 @@ function SettingsTab({
             {isSubmitting ? "Saving..." : "Save Changes"}
           </button>
         </form>
+      </section>
+
+      {/* Invite Friends */}
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="text-lg font-bold text-slate-800 mb-2">Invite Friends</h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Share your invite code — you and your friend each get a free entry credit when they sign up!
+        </p>
+
+        {/* Code display */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex-1 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-center font-mono text-2xl font-bold tracking-[0.3em] text-slate-800">
+            {user?.invite_code ?? "------"}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(user?.invite_code ?? "");
+              setSuccessMsg("Invite code copied!");
+            }}
+            className="shrink-0 px-4 py-3 rounded-xl bg-purple-600 text-white font-medium hover:bg-purple-700 transition-colors"
+          >
+            Copy
+          </button>
+        </div>
+
+        {/* Share buttons */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            {
+              label: "Text",
+              action: () => {
+                const url = `https://poplit.io/auth/signup?ref=${user?.invite_code}`;
+                window.open(`sms:?body=${encodeURIComponent(`Join me on PopLit! Use my invite code ${user?.invite_code} to get a free entry credit. ${url}`)}`, "_blank");
+              },
+              color: "bg-green-500 hover:bg-green-600",
+            },
+            {
+              label: "Email",
+              action: () => {
+                const url = `https://poplit.io/auth/signup?ref=${user?.invite_code}`;
+                window.open(`mailto:?subject=${encodeURIComponent("Join me on PopLit!")}&body=${encodeURIComponent(`Hey! I've been using PopLit for weekly short story contests and I think you'd love it. Use my invite code ${user?.invite_code} to sign up and we both get a free entry credit!\n\n${url}`)}`, "_blank");
+              },
+              color: "bg-blue-500 hover:bg-blue-600",
+            },
+            {
+              label: "X / Twitter",
+              action: () => {
+                const url = `https://poplit.io/auth/signup?ref=${user?.invite_code}`;
+                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Join me on PopLit — weekly short story contests where readers pick the winner! Use code ${user?.invite_code} for a free entry credit 🫧`)} ${url}`, "_blank");
+              },
+              color: "bg-slate-800 hover:bg-slate-900",
+            },
+            {
+              label: "Copy Link",
+              action: () => {
+                navigator.clipboard.writeText(`https://poplit.io/auth/signup?ref=${user?.invite_code}`);
+                setSuccessMsg("Invite link copied!");
+              },
+              color: "bg-orange-500 hover:bg-orange-600",
+            },
+          ].map((btn) => (
+            <button
+              key={btn.label}
+              type="button"
+              onClick={btn.action}
+              className={`px-3 py-2 rounded-lg text-white text-sm font-medium transition-colors ${btn.color}`}
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* Account actions */}

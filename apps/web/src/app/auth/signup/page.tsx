@@ -16,6 +16,12 @@ export default function SignupPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
+  const [inviteCode, setInviteCode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return new URLSearchParams(window.location.search).get("ref") ?? "";
+    }
+    return "";
+  });
 
   const {
     register,
@@ -37,6 +43,7 @@ export default function SignupPage() {
         data: {
           pen_name: data.pen_name,
           display_name: data.display_name ?? data.pen_name,
+          ...(inviteCode.trim() ? { invited_by: inviteCode.trim().toUpperCase() } : {}),
         },
         emailRedirectTo: `${window.location.origin}/auth/confirm`,
       },
@@ -200,6 +207,27 @@ export default function SignupPage() {
                 {errors.password.message}
               </p>
             )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="invite_code"
+              className="block text-sm font-medium mb-1.5"
+            >
+              Invite Code <span className="text-[var(--color-text-secondary)] font-normal">(optional)</span>
+            </label>
+            <input
+              id="invite_code"
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              maxLength={8}
+              className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-shadow uppercase tracking-widest text-center font-mono"
+              placeholder="ABC123"
+            />
+            <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+              Have a friend on PopLit? Enter their code and you both get a free entry credit!
+            </p>
           </div>
 
           <div className="flex items-start gap-3">
