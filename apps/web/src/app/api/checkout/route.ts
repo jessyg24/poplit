@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ENTRY_FEE_CENTS } from "@poplit/core/constants";
 
+export const dynamic = "force-dynamic";
+
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
 }
