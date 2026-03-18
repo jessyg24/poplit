@@ -5,20 +5,20 @@
   --color-primary-hover: #EA580C;
   --color-accent: #A855F7;
   --color-accent-hover: #9333EA;
-  --color-background: #FAFAFA;
+  --color-background: #F8F9FB;
   --color-surface: #FFFFFF;
-  --color-text: #18181B;
-  --color-text-secondary: #71717A;
-  --color-border: #E4E4E7;
+  --color-text: #1E293B;
+  --color-text-secondary: #64748B;
+  --color-border: #E2E8F0;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-background: #09090B;
-    --color-surface: #18181B;
-    --color-text: #FAFAFA;
-    --color-text-secondary: #A1A1AA;
-    --color-border: #27272A;
+    --color-background: #0F172A;
+    --color-surface: #1E293B;
+    --color-text: #F1F5F9;
+    --color-text-secondary: #94A3B8;
+    --color-border: #334155;
   }
 }
 
@@ -26,4 +26,5 @@ body {
   background: var(--color-background);
   color: var(--color-text);
   font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }

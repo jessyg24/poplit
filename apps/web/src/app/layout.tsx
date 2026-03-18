@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { PopEffectProvider } from "@/components/ui/pop-effect-provider";
 
 export const metadata: Metadata = {
   title: "PopLit — Weekly Short Story Contests",
-  description: "Where reader engagement is the vote. Writers pay $1 to enter, readers read for free, and the most-read story wins.",
+  description: "Where reader engagement is the vote. Writers pay $3 to enter, readers read for free, and the most-read story wins.",
 };
 
 export default function RootLayout({
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <PopEffectProvider>{children}</PopEffectProvider>
+      </body>
     </html>
   );
 }
