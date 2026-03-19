@@ -44,6 +44,7 @@ export interface Database {
           invite_code: string;
           invited_by: string | null;
           entry_credits: number;
+          published_works: { title: string; url: string; store: string }[];
           created_at: string;
           updated_at: string;
         };

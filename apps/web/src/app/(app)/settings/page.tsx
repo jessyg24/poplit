@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useState, useEffect } from "react";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   profileUpdateSchema,
@@ -23,10 +23,38 @@ export default function SettingsPage() {
     register,
     handleSubmit,
     control,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<ProfileUpdateInput>({
     resolver: zodResolver(profileUpdateSchema),
+    defaultValues: { published_works: [] },
   });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "published_works",
+  });
+
+  // Load existing profile data
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("users")
+        .select("real_name, bio, avatar_url, published_works")
+        .eq("id", user.id)
+        .single();
+      if (profile) {
+        reset({
+          real_name: profile.real_name ?? "",
+          bio: profile.bio ?? "",
+          avatar_url: profile.avatar_url ?? "",
+          published_works: (profile.published_works as any[]) ?? [],
+        });
+      }
+    })();
+  }, [supabase, reset]);
 
   async function onUpdateProfile(data: ProfileUpdateInput) {
     setServerError(null);
@@ -41,10 +69,11 @@ export default function SettingsPage() {
     }
 
     // Filter out undefined/empty fields
-    const updates: Record<string, string> = {};
+    const updates: Record<string, unknown> = {};
     if (data.real_name) updates.real_name = data.real_name;
     if (data.bio !== undefined) updates.bio = data.bio ?? "";
     if (data.avatar_url) updates.avatar_url = data.avatar_url;
+    if (data.published_works !== undefined) updates.published_works = data.published_works;
 
     const { error } = await supabase
       .from("users")
@@ -236,6 +265,117 @@ export default function SettingsPage() {
             className="w-full py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Saving..." : "Save Changes"}
+          </button>
+        </form>
+      </section>
+
+      {/* Published Works */}
+      <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold">Published Works</h2>
+            <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+              Link your books so readers can find them. Links are verified before display.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit(onUpdateProfile)} className="space-y-4">
+          {fields.length === 0 && (
+            <p className="text-sm text-[var(--color-text-secondary)] text-center py-4">
+              No published works added yet.
+            </p>
+          )}
+
+          {fields.map((field, index) => (
+            <div
+              key={field.id}
+              className="rounded-xl border border-[var(--color-border)] p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+                  Book {index + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  className="text-xs text-red-500 hover:text-red-600 font-medium"
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div>
+                <label className={labelClass}>Book Title</label>
+                <input
+                  type="text"
+                  {...register(`published_works.${index}.title`)}
+                  className={inputClass}
+                  placeholder="My Amazing Novel"
+                />
+                {errors.published_works?.[index]?.title && (
+                  <p className={errorTextClass}>
+                    {errors.published_works[index].title.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelClass}>Store</label>
+                <select
+                  {...register(`published_works.${index}.store`)}
+                  className={inputClass}
+                >
+                  <option value="">Select a store</option>
+                  <option value="Amazon">Amazon</option>
+                  <option value="Barnes & Noble">Barnes &amp; Noble</option>
+                  <option value="Bookshop.org">Bookshop.org</option>
+                  <option value="Apple Books">Apple Books</option>
+                  <option value="Google Play Books">Google Play Books</option>
+                  <option value="Kobo">Kobo</option>
+                  <option value="IndieBound">IndieBound</option>
+                  <option value="Other">Other</option>
+                </select>
+                {errors.published_works?.[index]?.store && (
+                  <p className={errorTextClass}>
+                    {errors.published_works[index].store.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelClass}>Link URL</label>
+                <input
+                  type="url"
+                  {...register(`published_works.${index}.url`)}
+                  className={inputClass}
+                  placeholder="https://www.amazon.com/dp/..."
+                />
+                {errors.published_works?.[index]?.url && (
+                  <p className={errorTextClass}>
+                    {errors.published_works[index].url.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {fields.length < 10 && (
+            <button
+              type="button"
+              onClick={() => append({ title: "", url: "", store: "" })}
+              className="w-full py-2.5 rounded-xl border border-dashed border-[var(--color-border)] text-sm font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+            >
+              + Add Published Work
+            </button>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-3 rounded-xl bg-[var(--color-primary)] text-white font-semibold hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? "Saving..." : "Save Published Works"}
           </button>
         </form>
       </section>

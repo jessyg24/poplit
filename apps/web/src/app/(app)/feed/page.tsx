@@ -56,23 +56,29 @@ export default function FeedPage() {
   // ---------- Intent Chooser ----------
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
-      {/* Top buttons */}
-      <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
-        {isAdmin && (
-          <a
-            href="/admin"
-            className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 right-0 z-30 px-4 py-3 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
+        <p className="text-sm font-bold tracking-tight text-slate-800 dark:text-white">
+          <span className="text-orange-500">Pop</span>
+          <span className="text-slate-400 dark:text-slate-500">Lit</span>
+        </p>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <a
+              href="/admin"
+              className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+            >
+              Admin
+            </a>
+          )}
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
           >
-            Admin Dashboard
-          </a>
-        )}
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-200/50 dark:bg-slate-800/50 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
-        >
-          {loggingOut ? "..." : "Logout"}
-        </button>
+            {loggingOut ? "..." : "Logout"}
+          </button>
+        </div>
       </div>
 
       {/* Title text */}
@@ -91,14 +97,6 @@ export default function FeedPage() {
           setMode(choice);
         }}
       />
-
-      {/* Bottom hint */}
-      <div className="absolute bottom-8 left-0 right-0 z-20 text-center pointer-events-none">
-        <p className="text-xs text-slate-400 dark:text-slate-500">
-          <span className="text-orange-500 font-bold">Pop</span>
-          <span className="text-slate-300 dark:text-slate-600 mx-1">Lit</span>
-        </p>
-      </div>
     </div>
   );
 }

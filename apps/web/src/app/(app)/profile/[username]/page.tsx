@@ -159,6 +159,36 @@ export default async function ProfilePage({
         </section>
       )}
 
+      {/* Published Works (external books) */}
+      {profile.published_works && (profile.published_works as any[]).length > 0 && (
+        <section>
+          <h2 className="text-lg font-bold mb-3">Published Works</h2>
+          <div className="space-y-2">
+            {(profile.published_works as { title: string; url: string; store: string }[]).map(
+              (work, i) => (
+                <a
+                  key={i}
+                  href={work.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:border-[var(--color-primary)] transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{work.title}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {work.store}
+                    </p>
+                  </div>
+                  <span className="shrink-0 ml-3 px-3 py-1 rounded-full text-xs font-medium bg-[var(--color-primary)] text-white">
+                    View
+                  </span>
+                </a>
+              ),
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Published stories (Lits) */}
       <section>
         <h2 className="text-lg font-bold mb-4">

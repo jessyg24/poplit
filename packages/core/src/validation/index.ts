@@ -90,10 +90,17 @@ export const popcycleSchema = z.object({
 });
 
 // Profile update
+export const publishedWorkSchema = z.object({
+  title: z.string().min(1, "Title is required").max(150),
+  url: z.string().url("Must be a valid URL").max(500),
+  store: z.string().min(1, "Store is required").max(50),
+});
+
 export const profileUpdateSchema = z.object({
   real_name: z.string().min(1).max(50).optional(),
   bio: z.string().max(500).optional(),
   avatar_url: z.string().max(50).optional(),
+  published_works: z.array(publishedWorkSchema).max(10).optional(),
 });
 
 // Feature bubble
