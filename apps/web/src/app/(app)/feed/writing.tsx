@@ -644,6 +644,7 @@ function MyStoriesTab({
         title: "Untitled Draft",
         genre: [],
         triggers: [],
+        word_count: 0,
         status: "draft" as const,
       })
       .select("*")

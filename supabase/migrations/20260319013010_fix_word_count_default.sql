@@ -1,0 +1,1 @@
+ALTER TABLE stories ALTER COLUMN word_count SET DEFAULT 0;
