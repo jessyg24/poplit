@@ -20,7 +20,7 @@ export const signupSchema = loginSchema.extend({
 export const onboardingSchema = z.object({
   real_name: z.string().min(1).max(50),
   bio: z.string().max(500).optional(),
-  avatar_url: z.string().url().optional(),
+  avatar_url: z.union([z.string().url(), z.literal("")]).optional(),
 });
 
 // Story draft (saving/editing drafts — no popcycle required)
@@ -93,7 +93,7 @@ export const popcycleSchema = z.object({
 export const profileUpdateSchema = z.object({
   real_name: z.string().min(1).max(50).optional(),
   bio: z.string().max(500).optional(),
-  avatar_url: z.string().url().optional(),
+  avatar_url: z.union([z.string().url(), z.literal("")]).optional(),
 });
 
 // Feature bubble
