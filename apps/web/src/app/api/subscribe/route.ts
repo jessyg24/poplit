@@ -12,7 +12,7 @@ function getStripe() {
 const PRICE_IDS: Record<string, string | undefined> = {
   monthly: process.env.POPLIT_STRIPE_PRICE_MONTHLY,
   annual: process.env.POPLIT_STRIPE_PRICE_ANNUAL,
-  single: undefined, // handled separately with price_data
+  single: process.env.POPLIT_STRIPE_PRICE_SINGLE,
 };
 
 export async function POST(request: NextRequest) {
@@ -52,32 +52,6 @@ export async function POST(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://poplit.io";
   const stripe = getStripe();
 
-  if (plan === "single") {
-    // One-time purchase of 1 entry credit
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer: customerId,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: 300,
-            product_data: {
-              name: "PopLit Entry Credit",
-              description: "1 entry credit for story submission",
-            },
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: { user_id: user.id, type: "credit_purchase" },
-      success_url: `${siteUrl}/?tab=credits&status=success`,
-      cancel_url: `${siteUrl}/?tab=credits&status=cancelled`,
-    });
-    return NextResponse.json({ url: session.url });
-  }
-
-  // Subscription checkout
   const priceId = PRICE_IDS[plan];
   if (!priceId) {
     return NextResponse.json(
@@ -86,22 +60,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const isSubscription = plan === "monthly" || plan === "annual";
+
   const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
+    mode: isSubscription ? "subscription" : "payment",
     customer: customerId,
     line_items: [{ price: priceId, quantity: 1 }],
     metadata: {
       user_id: user.id,
-      tier: plan === "monthly" ? "tier_1" : "tier_2",
+      ...(isSubscription
+        ? { tier: plan === "monthly" ? "tier_1" : "tier_2" }
+        : { type: "credit_purchase" }),
     },
-    subscription_data: {
-      metadata: {
-        user_id: user.id,
-        tier: plan === "monthly" ? "tier_1" : "tier_2",
+    ...(isSubscription && {
+      subscription_data: {
+        metadata: {
+          user_id: user.id,
+          tier: plan === "monthly" ? "tier_1" : "tier_2",
+        },
       },
-    },
-    success_url: `${siteUrl}/?tab=billing&status=success`,
-    cancel_url: `${siteUrl}/?tab=billing&status=cancelled`,
+    }),
+    success_url: `${siteUrl}/?tab=${isSubscription ? "billing" : "credits"}&status=success`,
+    cancel_url: `${siteUrl}/?tab=${isSubscription ? "billing" : "credits"}&status=cancelled`,
   });
 
   return NextResponse.json({ url: session.url });
