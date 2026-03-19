@@ -509,7 +509,7 @@ function OverviewTab({
                       <StatusBadge status={story.status} />
                     </div>
                     <p className="mt-0.5 text-xs text-slate-400">
-                      {story.genre.join(", ")} &middot;{" "}
+                      {(story.genre ?? []).join(", ")} &middot;{" "}
                       {new Date(story.created_at).toLocaleDateString()}
                     </p>
                   </div>
@@ -710,7 +710,9 @@ function MyStoriesTab({
 
       // Walk back to find the root
       let root = story;
-      while (root.predecessor_id && byId.has(root.predecessor_id)) {
+      const walkBack = new Set<string>();
+      while (root.predecessor_id && byId.has(root.predecessor_id) && !walkBack.has(root.predecessor_id)) {
+        walkBack.add(root.id);
         root = byId.get(root.predecessor_id)!;
       }
 
@@ -819,7 +821,7 @@ function MyStoriesTab({
                           {draft.title || "Untitled"}
                         </h3>
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {draft.genre.map((g) => (
+                          {(draft.genre ?? []).map((g) => (
                             <span
                               key={g}
                               className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700"
@@ -911,7 +913,7 @@ function MyStoriesTab({
                             <StatusBadge status={story.status} />
                           </div>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {story.genre.map((g) => (
+                            {(story.genre ?? []).map((g) => (
                               <span
                                 key={g}
                                 className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700"
@@ -1565,7 +1567,7 @@ function SubmitTab({
                           {d.title || "Untitled"}
                         </h3>
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {d.genre.map((g) => (
+                          {(d.genre ?? []).map((g) => (
                             <span
                               key={g}
                               className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700"
@@ -1721,7 +1723,7 @@ function SubmitTab({
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-slate-500">Genre</span>
               <span className="text-sm text-slate-800">
-                {selectedDraft.genre.join(", ")}
+                {(selectedDraft.genre ?? []).join(", ")}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -2055,7 +2057,18 @@ function BillingTab({ user }: { user: UserProfile | null }) {
           Access Stripe Customer Portal to manage your subscription, payment
           methods, and invoices.
         </p>
-        <button className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+        <button
+          onClick={async () => {
+            const res = await fetch("/api/customer-portal", { method: "POST" });
+            const result = await res.json();
+            if (result.url) {
+              window.location.href = result.url;
+            } else {
+              alert(result.error ?? "Could not open portal. Make sure you have a billing account.");
+            }
+          }}
+          className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+        >
           Open Customer Portal
         </button>
       </div>
@@ -2791,7 +2804,7 @@ function GardenTab({
                   by @{story.users?.pen_name ?? "unknown"}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {story.genre.map((g) => (
+                  {(story.genre ?? []).map((g) => (
                     <span
                       key={g}
                       className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700"
