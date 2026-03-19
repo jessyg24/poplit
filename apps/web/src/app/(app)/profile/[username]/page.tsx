@@ -8,6 +8,7 @@ import { colors } from "@poplit/ui";
 import { truncateText, formatRelativeDate } from "@poplit/core/utils";
 import { notFound } from "next/navigation";
 import { FollowButton } from "./follow-button";
+import { Avatar } from "@/components/ui/Avatar";
 
 const genreColors = colors.genre as Record<string, string>;
 
@@ -68,17 +69,11 @@ export default async function ProfilePage({
       {/* Profile header */}
       <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
         <div className="flex items-start gap-4">
-          {profile.avatar_url ? (
-            <img
-              src={profile.avatar_url}
-              alt={profile.pen_name}
-              className="w-20 h-20 rounded-full object-cover shrink-0"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white text-2xl font-bold shrink-0">
-              {profile.pen_name.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <Avatar
+            avatarId={profile.avatar_url}
+            fallbackInitial={profile.pen_name}
+            size={80}
+          />
 
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3">

@@ -24,6 +24,7 @@ import {
   MAX_GENRES_PER_STORY,
 } from "@poplit/core/constants";
 import { countWords, formatCents, formatCountdown, splitIntoSections } from "@poplit/core/utils";
+import { AvatarPicker } from "@/components/ui/Avatar";
 
 /* ---------- types ---------- */
 
@@ -2244,6 +2245,7 @@ function SettingsTab({
   const {
     register,
     handleSubmit,
+    control: settingsControl,
     formState: { errors, isSubmitting },
   } = useForm<ProfileUpdateInput>({
     resolver: zodResolver(profileUpdateSchema),
@@ -2493,21 +2495,16 @@ function SettingsTab({
             )}
           </div>
 
-          <div>
-            <label htmlFor="s-avatar" className={labelClass}>
-              Avatar URL
-            </label>
-            <input
-              id="s-avatar"
-              type="url"
-              {...register("avatar_url")}
-              className={inputClass}
-              placeholder="https://..."
-            />
-            {errors.avatar_url && (
-              <p className={errorTextClass}>{errors.avatar_url.message}</p>
+          <Controller
+            name="avatar_url"
+            control={settingsControl}
+            render={({ field }) => (
+              <AvatarPicker
+                value={field.value}
+                onChange={(id) => field.onChange(id)}
+              />
             )}
-          </div>
+          />
 
           <button
             type="submit"

@@ -3,6 +3,7 @@ import { getStoryById } from "@poplit/core/queries";
 import { colors } from "@poplit/ui";
 import { notFound } from "next/navigation";
 import { StoryReader } from "./story-reader";
+import { Avatar } from "@/components/ui/Avatar";
 
 const genreColors = colors.genre as Record<string, string>;
 
@@ -100,20 +101,11 @@ export default async function StoryPage({
             href={`/profile/${author?.pen_name}`}
             className="flex items-center gap-3 hover:opacity-80 transition-opacity"
           >
-            {author?.avatar_url ? (
-              <img
-                src={author.avatar_url}
-                alt={author.pen_name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
-            ) : (
-              <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold"
-                style={{ backgroundColor: genreColor }}
-              >
-                {author?.pen_name?.charAt(0).toUpperCase() ?? "?"}
-              </div>
-            )}
+            <Avatar
+              avatarId={author?.avatar_url}
+              fallbackInitial={author?.pen_name}
+              size={40}
+            />
             <div>
               <p className="text-sm font-semibold">
                 {author?.pen_name}

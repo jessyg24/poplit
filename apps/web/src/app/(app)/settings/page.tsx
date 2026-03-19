@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   profileUpdateSchema,
@@ -9,6 +9,7 @@ import {
 } from "@poplit/core/validation";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { AvatarPicker } from "@/components/ui/Avatar";
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ProfileUpdateInput>({
     resolver: zodResolver(profileUpdateSchema),
@@ -217,21 +219,16 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <div>
-            <label htmlFor="avatar_url" className={labelClass}>
-              Avatar URL
-            </label>
-            <input
-              id="avatar_url"
-              type="url"
-              {...register("avatar_url")}
-              className={inputClass}
-              placeholder="https://..."
-            />
-            {errors.avatar_url && (
-              <p className={errorTextClass}>{errors.avatar_url.message}</p>
+          <Controller
+            name="avatar_url"
+            control={control}
+            render={({ field }) => (
+              <AvatarPicker
+                value={field.value}
+                onChange={(id) => field.onChange(id)}
+              />
             )}
-          </div>
+          />
 
           <button
             type="submit"
