@@ -207,7 +207,7 @@ export default async function ProfilePage({
         ) : (
           <div className="space-y-3">
             {publishedStories.map((story: any) => {
-              const bgColor = genreColors[story.genre] ?? colors.accent[500];
+              const bgColor = genreColors[story.genre?.[0] ?? ""] ?? colors.accent[500];
               return (
                 <a
                   key={story.id}
@@ -221,7 +221,7 @@ export default async function ProfilePage({
                         className="px-2 py-0.5 rounded-full text-[10px] font-semibold text-white"
                         style={{ backgroundColor: bgColor }}
                       >
-                        {story.genre}
+                        {(story.genre ?? []).join(", ")}
                       </span>
                       <span className="text-xs text-[var(--color-text-secondary)]">
                         {formatRelativeDate(story.created_at)}

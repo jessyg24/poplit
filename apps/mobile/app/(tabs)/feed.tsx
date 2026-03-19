@@ -17,7 +17,7 @@ interface StoryItem {
   id: string;
   title: string;
   hook: string;
-  genre: string;
+  genre: string[];
   author_pen_name: string;
   pop_count: number;
   created_at: string;
@@ -105,8 +105,8 @@ export default function FeedScreen() {
             <StoryBubble
               title={item.title}
               hook={item.hook}
-              genre={item.genre}
-              genreColor={GENRE_COLORS[item.genre] ?? "#7C3AED"}
+              genre={item.genre?.[0] ?? ""}
+              genreColor={GENRE_COLORS[item.genre?.[0] ?? ""] ?? "#7C3AED"}
               author={item.author_pen_name}
               popCount={item.pop_count}
               onPress={() => handleStoryPress(item.id)}

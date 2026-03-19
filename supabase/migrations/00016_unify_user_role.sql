@@ -1,14 +1,50 @@
 -- All users are both readers and writers. Collapse reader/writer into "user".
--- 1. Add 'user' to the enum
-ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'user';
+-- Strategy: convert column to text, drop old enum, create new enum with 'user', convert back.
 
--- 2. Migrate existing reader and writer rows to 'user'
+-- 0. Drop RLS policies that depend on users.role column type
+DROP POLICY IF EXISTS "Admins can read platform_settings" ON platform_settings;
+DROP POLICY IF EXISTS "Admins can update platform_settings" ON platform_settings;
+DROP POLICY IF EXISTS "Admins can insert platform_settings" ON platform_settings;
+
+-- 1. Drop dependent default
+ALTER TABLE users ALTER COLUMN role DROP DEFAULT;
+
+-- 2. Convert column to text (breaks dependency on the enum)
+ALTER TABLE users ALTER COLUMN role TYPE TEXT USING role::TEXT;
+
+-- 3. Migrate existing rows while column is text
 UPDATE users SET role = 'user' WHERE role IN ('reader', 'writer');
 
--- 3. Update default role on the column
+-- 4. Drop old enum and create new one with 'user' and 'admin'
+DROP TYPE IF EXISTS user_role;
+CREATE TYPE user_role AS ENUM ('user', 'admin');
+
+-- 5. Convert column back to enum
+ALTER TABLE users ALTER COLUMN role TYPE user_role USING role::user_role;
+
+-- 6. Set new default
 ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user';
 
--- 4. Update the auth signup trigger to default new users to 'user' (preserving invite code logic)
+-- 7. Recreate the RLS policies that were dropped
+CREATE POLICY "Admins can read platform_settings"
+  ON platform_settings FOR SELECT
+  USING (
+    (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin'
+  );
+
+CREATE POLICY "Admins can update platform_settings"
+  ON platform_settings FOR UPDATE
+  USING (
+    (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin'
+  );
+
+CREATE POLICY "Admins can insert platform_settings"
+  ON platform_settings FOR INSERT
+  WITH CHECK (
+    (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin'
+  );
+
+-- 8. Update the auth signup trigger to default new users to 'user'
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql

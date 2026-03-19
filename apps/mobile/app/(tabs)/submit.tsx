@@ -14,14 +14,14 @@ import {
 import { useRouter } from "expo-router";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { storySubmissionSchema, type StorySubmissionInput } from "@poplit/core/validation";
+import { storyDraftSchema, type StoryDraftInput } from "@poplit/core/validation";
 import { GENRES, MOODS, STORY_LIMITS } from "@poplit/core/constants";
 import { supabase } from "@/lib/supabase";
 
 export default function SubmitScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
   const {
@@ -29,15 +29,15 @@ export default function SubmitScreen() {
     handleSubmit,
     setValue,
     formState: { errors },
-  } = useForm<StorySubmissionInput>({
-    resolver: zodResolver(storySubmissionSchema),
+  } = useForm<StoryDraftInput>({
+    resolver: zodResolver(storyDraftSchema),
   });
 
   function getWordCount(text: string): number {
     return text.trim().split(/\s+/).filter(Boolean).length;
   }
 
-  async function onSubmit(data: StorySubmissionInput) {
+  async function onSubmit(data: StoryDraftInput) {
     setLoading(true);
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
@@ -46,9 +46,15 @@ export default function SubmitScreen() {
       return;
     }
 
-    const { error } = await supabase.from("stories").insert({
-      ...data,
+    const { error } = await (supabase.from("stories") as any).insert({
       author_id: userData.user.id,
+      title: data.title,
+      genre: data.genre,
+      triggers: data.triggers ?? [],
+      ai_assisted: data.ai_assisted ?? false,
+      hook: data.hook ?? null,
+      mood: data.mood ?? null,
+      content: data.content ?? null,
       status: "draft",
     });
 
@@ -125,28 +131,34 @@ export default function SubmitScreen() {
           <Text style={styles.label}>Genre</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
             <View style={styles.chipRow}>
-              {GENRES.map((genre) => (
-                <TouchableOpacity
-                  key={genre}
-                  style={[
-                    styles.chip,
-                    selectedGenre === genre && styles.chipSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedGenre(genre);
-                    setValue("genre", genre, { shouldValidate: true });
-                  }}
-                >
-                  <Text
+              {GENRES.map((genre) => {
+                const isSelected = selectedGenres.includes(genre);
+                return (
+                  <TouchableOpacity
+                    key={genre}
                     style={[
-                      styles.chipText,
-                      selectedGenre === genre && styles.chipTextSelected,
+                      styles.chip,
+                      isSelected && styles.chipSelected,
                     ]}
+                    onPress={() => {
+                      const next = isSelected
+                        ? selectedGenres.filter((g) => g !== genre)
+                        : [...selectedGenres, genre];
+                      setSelectedGenres(next);
+                      setValue("genre", next, { shouldValidate: true });
+                    }}
                   >
-                    {genre}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.chipText,
+                        isSelected && styles.chipTextSelected,
+                      ]}
+                    >
+                      {genre}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </ScrollView>
           {errors.genre && <Text style={styles.error}>{errors.genre.message}</Text>}

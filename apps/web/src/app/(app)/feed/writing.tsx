@@ -642,19 +642,9 @@ function MyStoriesTab({
       .insert({
         author_id: user.id,
         title: "Untitled Draft",
-        hook: "",
         genre: [],
-        mood: null,
         triggers: [],
-        content: "",
-        section_1: "",
-        section_2: "",
-        section_3: "",
-        section_4: "",
-        section_5: "",
-        word_count: 0,
-        status: "draft",
-        ai_assisted: false,
+        status: "draft" as const,
       })
       .select("*")
       .single();

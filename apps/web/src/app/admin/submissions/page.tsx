@@ -99,7 +99,7 @@ export default async function SubmissionsPage({ searchParams }: Props) {
               <tr key={story.id} className="hover:bg-[var(--color-surface)] transition-colors">
                 <td className="px-4 py-3 font-medium text-[var(--color-text)]">{story.title}</td>
                 <td className="px-4 py-3 text-[var(--color-text-secondary)]">{authorMap[story.author_id] ?? "Unknown"}</td>
-                <td className="px-4 py-3 text-[var(--color-text-secondary)]">{story.genre}</td>
+                <td className="px-4 py-3 text-[var(--color-text-secondary)]">{(story.genre ?? []).join(", ")}</td>
                 <td className="px-4 py-3 text-[var(--color-text)]">{story.word_count.toLocaleString()}</td>
                 <td className="px-4 py-3">
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[story.status as StoryStatus]}`}>

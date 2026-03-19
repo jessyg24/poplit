@@ -18,11 +18,11 @@ import { SectionReader } from "@/components/SectionReader";
 interface Story {
   id: string;
   title: string;
-  hook: string;
-  genre: string;
-  content: string;
-  author_pen_name: string;
+  hook: string | null;
+  genre: string[];
+  content: string | null;
   sections: string[];
+  users: { pen_name: string } | null;
 }
 
 export default function StoryReaderScreen() {
@@ -39,7 +39,7 @@ export default function StoryReaderScreen() {
 
     const { data, error } = await supabase
       .from("stories")
-      .select("id, title, hook, genre, content, author_pen_name")
+      .select("id, title, hook, genre, content, users!author_id(pen_name)")
       .eq("id", id)
       .single();
 
@@ -50,7 +50,7 @@ export default function StoryReaderScreen() {
     }
 
     // Split content into sections
-    const contentText = data.content as string;
+    const contentText = ((data as any).content ?? "") as string;
     const sectionCount = STORY_LIMITS.sections;
     const paragraphs = contentText.split(/\n\n+/);
     const perSection = Math.ceil(paragraphs.length / sectionCount);
@@ -62,7 +62,7 @@ export default function StoryReaderScreen() {
       sections.push(paragraphs.slice(start, end).join("\n\n"));
     }
 
-    setStory({ ...data, sections } as Story);
+    setStory({ ...(data as any), sections } as Story);
   }, [id, router]);
 
   useEffect(() => {
@@ -82,12 +82,12 @@ export default function StoryReaderScreen() {
 
     const weight = SECTION_WEIGHTS[(section + 1) as keyof typeof SECTION_WEIGHTS] ?? 1.0;
 
-    await supabase.from("pops").insert({
+    await (supabase.from("pops") as any).insert({
       story_id: story.id,
       reader_id: userData.user.id,
-      section: section + 1,
-      weight,
-      read_time_ms: readTimeMs,
+      section_opened: section + 1,
+      weighted_value: weight,
+      read_duration_ms: readTimeMs,
     });
   }
 
@@ -129,7 +129,7 @@ export default function StoryReaderScreen() {
           <Text style={styles.storyTitle} numberOfLines={1}>
             {story.title}
           </Text>
-          <Text style={styles.authorName}>{story.author_pen_name}</Text>
+          <Text style={styles.authorName}>{story.users?.pen_name ?? "unknown"}</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>

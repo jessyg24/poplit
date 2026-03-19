@@ -121,7 +121,7 @@ export default async function DashboardPage() {
                       <StatusBadge status={story.status} />
                     </div>
                     <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
-                      {story.genre} &middot;{" "}
+                      {(story.genre ?? []).join(", ")} &middot;{" "}
                       {new Date(story.createdAt).toLocaleDateString()}
                     </p>
                   </div>

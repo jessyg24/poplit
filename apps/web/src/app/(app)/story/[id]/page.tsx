@@ -28,7 +28,7 @@ export default async function StoryPage({
     avatar_url: string | null;
   } | null;
 
-  const genreColor = genreColors[story.genre] ?? colors.accent[500];
+  const genreColor = genreColors[story.genre?.[0] ?? ""] ?? colors.accent[500];
 
   // Check if current user follows the author
   let isFollowing = false;
@@ -71,7 +71,7 @@ export default async function StoryPage({
             className="px-3 py-1 rounded-full text-xs font-semibold text-white"
             style={{ backgroundColor: genreColor }}
           >
-            {story.genre}
+            {(story.genre ?? []).join(", ")}
           </span>
           {story.mood && (
             <span className="px-3 py-1 rounded-full text-xs font-medium border border-[var(--color-border)]">

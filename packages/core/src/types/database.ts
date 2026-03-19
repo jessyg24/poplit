@@ -84,7 +84,7 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database["public"]["Tables"]["stories"]["Row"], "id" | "created_at" | "updated_at" | "ai_score" | "ai_flagged" | "ai_review_note" | "published_at" | "status"> & {
+        Insert: Omit<Database["public"]["Tables"]["stories"]["Row"], "id" | "created_at" | "updated_at" | "ai_score" | "ai_flagged" | "ai_review_note" | "published_at" | "status" | "word_count" | "payment_intent_id" | "mood"> & {
           id?: string;
           created_at?: string;
           updated_at?: string;
@@ -96,6 +96,9 @@ export interface Database {
           ai_disclaimer_source?: "self_disclosed" | "auto_flagged" | null;
           published_at?: string | null;
           status?: StoryStatus;
+          word_count?: number;
+          payment_intent_id?: string | null;
+          mood?: string | null;
           popcycle_id?: string | null;
           hook?: string | null;
           content?: string | null;
