@@ -29,9 +29,12 @@ export const storyDraftSchema = z.object({
   hook: z.string().max(STORY_LIMITS.hookMaxLength).optional(),
   genre: z
     .array(z.enum(GENRES as unknown as [string, ...string[]]))
-    .min(1, "At least one genre is required")
-    .max(MAX_GENRES_PER_STORY, `Maximum ${MAX_GENRES_PER_STORY} genres`),
-  mood: z.enum(MOODS as unknown as [string, ...string[]]).optional(),
+    .max(MAX_GENRES_PER_STORY, `Maximum ${MAX_GENRES_PER_STORY} genres`)
+    .default([]),
+  mood: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.enum(MOODS as unknown as [string, ...string[]]).optional(),
+  ),
   triggers: z.array(z.enum(TRIGGER_WARNINGS as unknown as [string, ...string[]])).default([]),
   content: z.string().optional(),
   ai_assisted: z.boolean().default(false),
