@@ -31,8 +31,10 @@ export const COLOR_NAMES = Object.keys(COLORS);
 /** Parse "fox-purple" → { animal: "fox", color: "purple" } */
 export function parseAvatarId(id: string | null | undefined) {
   if (!id) return null;
-  const [animal, color] = id.split("-");
-  if (ANIMALS[animal] && COLORS[color]) return { animal, color };
+  const parts = id.split("-");
+  const animal = parts[0];
+  const color = parts[1];
+  if (animal && color && ANIMALS[animal] && COLORS[color]) return { animal, color };
   return null;
 }
 
