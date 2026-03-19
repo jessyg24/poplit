@@ -262,7 +262,7 @@ function PreviewMode({
 }: {
   title: string;
   hook: string;
-  genre: string;
+  genre: string[];
   mood?: string;
   triggers: string[];
   content: string;
@@ -277,11 +277,11 @@ function PreviewMode({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {genre && (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[var(--color-accent)] text-white">
-            {genre}
+        {genre.map((g) => (
+          <span key={g} className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[var(--color-accent)] text-white">
+            {g}
           </span>
-        )}
+        ))}
         {mood && (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-medium border border-[var(--color-border)]">
             {mood}
