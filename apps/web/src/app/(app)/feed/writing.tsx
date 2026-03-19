@@ -1942,7 +1942,22 @@ function PopoffTab({
    TAB: Billing
    ==================================================================== */
 
+async function handleSubscribe(plan: "monthly" | "annual" | "single") {
+  const res = await fetch("/api/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan }),
+  });
+  const result = await res.json();
+  if (result.url) {
+    window.location.href = result.url;
+  } else {
+    alert(result.error ?? "Something went wrong. Please try again.");
+  }
+}
+
 function BillingTab({ user }: { user: UserProfile | null }) {
+  const [loading, setLoading] = useState<string | null>(null);
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">
@@ -1980,8 +1995,12 @@ function BillingTab({ user }: { user: UserProfile | null }) {
               </li>
             ))}
           </ul>
-          <button className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors">
-            Subscribe Monthly
+          <button
+            onClick={() => { setLoading("monthly"); handleSubscribe("monthly").finally(() => setLoading(null)); }}
+            disabled={loading !== null}
+            className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+          >
+            {loading === "monthly" ? "Redirecting..." : "Subscribe Monthly"}
           </button>
         </div>
 
@@ -2009,8 +2028,12 @@ function BillingTab({ user }: { user: UserProfile | null }) {
               </li>
             ))}
           </ul>
-          <button className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors">
-            Subscribe Annual
+          <button
+            onClick={() => { setLoading("annual"); handleSubscribe("annual").finally(() => setLoading(null)); }}
+            disabled={loading !== null}
+            className="w-full py-3 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+          >
+            {loading === "annual" ? "Redirecting..." : "Subscribe Annual"}
           </button>
         </div>
       </div>
@@ -2045,6 +2068,7 @@ function BillingTab({ user }: { user: UserProfile | null }) {
    ==================================================================== */
 
 function CreditsTab({ user }: { user: UserProfile | null }) {
+  const [loading, setLoading] = useState<string | null>(null);
   const credits = user?.entry_credits ?? 0;
 
   return (
@@ -2105,8 +2129,12 @@ function CreditsTab({ user }: { user: UserProfile | null }) {
               {formatCents(ENTRY_FEE_CENTS)}
             </p>
             <p className="text-xs text-slate-400">1 credit</p>
-            <button className="w-full py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors">
-              Buy
+            <button
+              onClick={() => { setLoading("single"); handleSubscribe("single").finally(() => setLoading(null)); }}
+              disabled={loading !== null}
+              className="w-full py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+            >
+              {loading === "single" ? "Redirecting..." : "Buy"}
             </button>
           </div>
 
@@ -2120,8 +2148,12 @@ function CreditsTab({ user }: { user: UserProfile | null }) {
             <p className="text-xs text-slate-400">
               5 credits/mo (rollover)
             </p>
-            <button className="w-full py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors">
-              Subscribe
+            <button
+              onClick={() => { setLoading("monthly"); handleSubscribe("monthly").finally(() => setLoading(null)); }}
+              disabled={loading !== null}
+              className="w-full py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+            >
+              {loading === "monthly" ? "Redirecting..." : "Subscribe"}
             </button>
           </div>
 
@@ -2138,8 +2170,12 @@ function CreditsTab({ user }: { user: UserProfile | null }) {
               <span className="text-xs font-normal text-slate-400">/yr</span>
             </p>
             <p className="text-xs text-slate-400">65 credits upfront</p>
-            <button className="w-full py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors">
-              Subscribe
+            <button
+              onClick={() => { setLoading("annual"); handleSubscribe("annual").finally(() => setLoading(null)); }}
+              disabled={loading !== null}
+              className="w-full py-2.5 rounded-xl bg-purple-600 text-white text-sm font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+            >
+              {loading === "annual" ? "Redirecting..." : "Subscribe"}
             </button>
           </div>
         </div>
