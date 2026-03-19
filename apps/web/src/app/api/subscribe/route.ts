@@ -10,8 +10,8 @@ function getStripe() {
 }
 
 const PRICE_IDS: Record<string, string | undefined> = {
-  monthly: process.env.STRIPE_PRICE_MONTHLY,
-  annual: process.env.STRIPE_PRICE_ANNUAL,
+  monthly: process.env.POPLIT_STRIPE_PRICE_MONTHLY,
+  annual: process.env.POPLIT_STRIPE_PRICE_ANNUAL,
   single: undefined, // handled separately with price_data
 };
 
