@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  storySubmissionSchema,
-  type StorySubmissionInput,
+  storyDraftSchema,
+  type StoryDraftInput,
 } from "@poplit/core/validation";
 import {
   GENRES,
@@ -25,8 +25,8 @@ export default function SubmitPage() {
     control,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<StorySubmissionInput>({
-    resolver: zodResolver(storySubmissionSchema),
+  } = useForm<StoryDraftInput>({
+    resolver: zodResolver(storyDraftSchema),
     defaultValues: {
       triggers: [],
     },
@@ -36,7 +36,7 @@ export default function SubmitPage() {
   const contentValue = watch("content") ?? "";
   const wordCount = contentValue ? countWords(contentValue) : 0;
 
-  async function onSubmit(data: StorySubmissionInput) {
+  async function onSubmit(data: StoryDraftInput) {
     // TODO: Implement payment flow + story creation
     console.log("Submit story:", data);
     alert("Payment flow coming soon! Story data logged to console.");
@@ -231,9 +231,6 @@ export default function SubmitPage() {
               </span>
             </div>
           </div>
-
-          {/* Popcycle ID (hidden - would be populated by active popcycle) */}
-          <input type="hidden" {...register("popcycle_id")} />
 
           {/* Submit */}
           <button
