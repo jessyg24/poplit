@@ -7,7 +7,7 @@ import { ENTRY_FEE_CENTS } from "@poplit/core/constants";
 export const dynamic = "force-dynamic";
 
 function getStripe() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+  return new Stripe(process.env.POPLIT_STRIPE_SECRET_KEY!);
 }
 
 export async function POST(request: NextRequest) {
