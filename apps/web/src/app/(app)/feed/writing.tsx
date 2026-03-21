@@ -1284,7 +1284,7 @@ function SubmitTab({
 
   const isOpen =
     popcycle &&
-    popcycle.status === "submissions_open" &&
+    (popcycle.status === "submissions_open" || popcycle.status === "reading_open") &&
     new Date(popcycle.submissions_close_at) > new Date();
 
   const hasCredits = (user?.entry_credits ?? 0) > 0;
