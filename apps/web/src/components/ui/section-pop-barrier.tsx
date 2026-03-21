@@ -1,17 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-
-/* ---------- types ---------- */
-
-interface PopParticle {
-  x: number;
-  y: number;
-  color: string;
-  time: number;
-}
-
-/* ---------- component ---------- */
+import { useRef, useState, useCallback } from "react";
 
 interface SectionPopBarrierProps {
   sectionNumber: number;
@@ -30,189 +19,212 @@ export function SectionPopBarrier({
   disabled,
   overlay,
 }: SectionPopBarrierProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [popped, setPopped] = useState(false);
-  const popsRef = useRef<PopParticle[]>([]);
-  const rafRef = useRef<number>(0);
-  const wobblePhaseRef = useRef(Math.random() * Math.PI * 2);
-  const activeRef = useRef(false);
-
-  const BUBBLE_R = overlay ? 120 : 32;
-  const CANVAS_W = overlay ? 360 : 260;
-  const CANVAS_H = overlay ? 300 : 80;
-
-  // Draw the barrier bubble
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = CANVAS_W;
-    canvas.height = CANVAS_H;
-
-    function startLoop() {
-      if (activeRef.current) return;
-      activeRef.current = true;
-
-      function tick() {
-        const now = Date.now();
-        ctx!.clearRect(0, 0, CANVAS_W, CANVAS_H);
-
-        if (!popped) {
-          wobblePhaseRef.current += 0.008;
-          const cx = CANVAS_W / 2;
-          const cy = CANVAS_H / 2;
-          const segments = 32;
-
-          ctx!.beginPath();
-          for (let i = 0; i <= segments; i++) {
-            const theta = (i / segments) * Math.PI * 2;
-            const wobble = Math.sin(2 * theta + wobblePhaseRef.current) * (overlay ? 3 : 2);
-            const r = BUBBLE_R + wobble;
-            const px = cx + Math.cos(theta) * r;
-            const py = cy + Math.sin(theta) * r;
-            if (i === 0) ctx!.moveTo(px, py);
-            else ctx!.lineTo(px, py);
-          }
-          ctx!.closePath();
-
-          const grad = ctx!.createRadialGradient(cx - 8, cy - 8, 4, cx, cy, BUBBLE_R);
-          grad.addColorStop(0, "rgba(255,255,255,0.3)");
-          grad.addColorStop(0.4, color);
-          grad.addColorStop(1, color);
-          ctx!.fillStyle = grad;
-          ctx!.fill();
-          ctx!.strokeStyle = "rgba(255,255,255,0.3)";
-          ctx!.lineWidth = 1.5;
-          ctx!.stroke();
-
-          // Shine
-          const shineOffX = overlay ? -28 : -8;
-          const shineOffY = overlay ? -36 : -10;
-          const shineRx = overlay ? 28 : 8;
-          const shineRy = overlay ? 18 : 5;
-          ctx!.beginPath();
-          ctx!.ellipse(cx + shineOffX, cy + shineOffY, shineRx, shineRy, -0.4, 0, Math.PI * 2);
-          ctx!.fillStyle = "rgba(255,255,255,0.25)";
-          ctx!.fill();
-
-          // Label
-          ctx!.fillStyle = "#fff";
-          ctx!.font = overlay ? "bold 20px system-ui, sans-serif" : "bold 11px system-ui, sans-serif";
-          ctx!.textAlign = "center";
-          ctx!.textBaseline = "middle";
-          ctx!.fillText(`Section ${sectionNumber + 1}`, cx, cy - (overlay ? 14 : 3));
-          ctx!.font = overlay ? "16px system-ui, sans-serif" : "10px system-ui, sans-serif";
-          ctx!.fillStyle = "rgba(255,255,255,0.75)";
-          ctx!.fillText("Pop to continue", cx, cy + (overlay ? 20 : 11));
-        }
-
-        // Pop particles
-        const alive = popsRef.current.filter((p) => now - p.time < 500);
-        popsRef.current = alive;
-
-        for (const pop of alive) {
-          const elapsed = (now - pop.time) / 500;
-          ctx!.globalAlpha = 1 - elapsed;
-
-          ctx!.beginPath();
-          ctx!.arc(pop.x, pop.y, BUBBLE_R * (0.3 + elapsed * 1.5), 0, Math.PI * 2);
-          ctx!.strokeStyle = pop.color;
-          ctx!.lineWidth = overlay ? 3 : 2;
-          ctx!.stroke();
-
-          const particleCount = overlay ? 16 : 10;
-          for (let i = 0; i < particleCount; i++) {
-            const angle = (i / particleCount) * Math.PI * 2;
-            const dist = elapsed * (overlay ? 70 + i * 10 : 40 + i * 8);
-            const baseSize = overlay ? 6 + (i % 3) * 3 : 4 + (i % 3) * 2;
-            ctx!.beginPath();
-            ctx!.arc(pop.x + Math.cos(angle) * dist, pop.y + Math.sin(angle) * dist, baseSize * (1 - elapsed), 0, Math.PI * 2);
-            ctx!.fillStyle = pop.color;
-            ctx!.fill();
-          }
-
-          ctx!.globalAlpha = 1;
-        }
-
-        if (!popped || alive.length > 0) {
-          rafRef.current = requestAnimationFrame(tick);
-        } else {
-          activeRef.current = false;
-        }
-      }
-
-      rafRef.current = requestAnimationFrame(tick);
-    }
-
-    startLoop();
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      activeRef.current = false;
-    };
-  }, [popped, color, sectionNumber, overlay]);
+  const [hovering, setHovering] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleClick = useCallback(() => {
     if (popped || disabled) return;
     setPopped(true);
-    popsRef.current.push({
-      x: CANVAS_W / 2,
-      y: CANVAS_H / 2,
-      color,
-      time: Date.now(),
-    });
-    setTimeout(onPop, 300);
-  }, [popped, disabled, color, onPop, CANVAS_W, CANVAS_H]);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      onPop();
+    }, overlay ? 50 : 200);
+  }, [popped, disabled, onPop, overlay]);
 
-  // Overlay mode: absolute-positioned bubble over blurred text
+  // Overlay mode: full-width tall rounded rectangle covering the blurred text
   if (overlay) {
     if (popped) {
       return (
-        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-          <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} />
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <div className="relative" style={{ width: 300, height: 300 }}>
+            {Array.from({ length: 20 }).map((_, i) => {
+              const angle = (i / 20) * 360;
+              const dist = 80 + (i % 4) * 25;
+              return (
+                <div
+                  key={i}
+                  className="absolute rounded-full"
+                  style={{
+                    width: 6 + (i % 3) * 5,
+                    height: 6 + (i % 3) * 5,
+                    backgroundColor: i % 3 === 0 ? "white" : i % 2 === 0 ? color : `${color}88`,
+                    left: "50%",
+                    top: "50%",
+                    marginLeft: -5,
+                    marginTop: -5,
+                    animation: `pop-p-${i} 0.6s ease-out forwards`,
+                  }}
+                />
+              );
+            })}
+          </div>
+          <style>{`
+            ${Array.from({ length: 20 }).map((_, i) => {
+              const angle = (i / 20) * 360;
+              const dist = 80 + (i % 4) * 25;
+              const rad = angle * Math.PI / 180;
+              return `@keyframes pop-p-${i} {
+                0% { opacity: 1; transform: translate(0,0) scale(1.2); }
+                100% { opacity: 0; transform: translate(${Math.cos(rad) * dist}px,${Math.sin(rad) * dist}px) scale(0); }
+              }`;
+            }).join("\n")}
+          `}</style>
         </div>
       );
     }
+
     return (
-      <div className="absolute inset-0 flex items-center justify-center z-10">
-        <div className="relative cursor-pointer" onClick={handleClick}>
-          <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} />
+      <div
+        className="absolute inset-0 z-10 flex items-center justify-center cursor-pointer"
+        onClick={handleClick}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
+      >
+        <div
+          className="relative flex flex-col items-center justify-center gap-2 select-none"
+          style={{
+            background: `linear-gradient(160deg, ${color}dd, ${color}bb, ${color}ee)`,
+            backdropFilter: "blur(6px)",
+            boxShadow: hovering
+              ? `0 12px 48px ${color}60, inset 0 2px 0 rgba(255,255,255,0.25)`
+              : `0 8px 32px ${color}40, inset 0 1px 0 rgba(255,255,255,0.2)`,
+            width: "92%",
+            minHeight: "90%",
+            borderRadius: 32,
+            animation: hovering ? "bubbleWobbleHover 0.6s ease-in-out infinite" : "bubbleWobble 3s ease-in-out infinite",
+            transition: "box-shadow 0.3s ease",
+          }}
+        >
+          {/* Shine */}
+          <div
+            className="absolute top-4 left-8 rounded-full opacity-15"
+            style={{ width: "40%", height: 10, background: "linear-gradient(90deg, white, transparent)" }}
+          />
+          {/* Small floating decorations */}
+          <div
+            className="absolute rounded-full opacity-25"
+            style={{
+              width: 18, height: 18, backgroundColor: "white",
+              top: -6, right: 24,
+              animation: "bubbleDeco 2.5s ease-in-out infinite 0.3s",
+            }}
+          />
+          <div
+            className="absolute rounded-full opacity-15"
+            style={{
+              width: 12, height: 12, backgroundColor: "white",
+              bottom: -4, left: 16,
+              animation: "bubbleDeco 3s ease-in-out infinite 0.8s",
+            }}
+          />
+          <div
+            className="absolute rounded-full opacity-20"
+            style={{
+              width: 10, height: 10, backgroundColor: "white",
+              top: "30%", right: -3,
+              animation: "bubbleDeco 2.8s ease-in-out infinite 1.2s",
+            }}
+          />
+          <p className="text-white font-bold text-2xl tracking-tight drop-shadow-sm">
+            Section {sectionNumber + 1}
+          </p>
+          <p className="text-white/80 text-base font-medium">
+            Pop to continue reading
+          </p>
+          {hovering && (
+            <p className="text-white/60 text-xs mt-1 animate-pulse">
+              Click!
+            </p>
+          )}
         </div>
+
+        <style>{`
+          @keyframes bubbleWobble {
+            0% { transform: translateY(0px) scaleX(1) scaleY(1); }
+            25% { transform: translateY(-5px) scaleX(1.01) scaleY(0.99); }
+            50% { transform: translateY(-2px) scaleX(0.99) scaleY(1.01); }
+            75% { transform: translateY(-6px) scaleX(1.005) scaleY(0.995); }
+            100% { transform: translateY(0px) scaleX(1) scaleY(1); }
+          }
+          @keyframes bubbleWobbleHover {
+            0% { transform: translateY(0px) scaleX(1) scaleY(1); }
+            20% { transform: translateY(-4px) scaleX(1.02) scaleY(0.98); }
+            40% { transform: translateY(2px) scaleX(0.98) scaleY(1.02); }
+            60% { transform: translateY(-3px) scaleX(1.015) scaleY(0.985); }
+            80% { transform: translateY(1px) scaleX(0.99) scaleY(1.01); }
+            100% { transform: translateY(0px) scaleX(1) scaleY(1); }
+          }
+          @keyframes bubbleDeco {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+          }
+        `}</style>
       </div>
     );
   }
 
+  // Non-overlay mode: small completion bubble (last section)
   if (popped) {
     return (
       <div className="flex justify-center py-4">
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_W}
-          height={CANVAS_H}
-          className="cursor-default"
-        />
+        <div
+          className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xs"
+          style={{
+            backgroundColor: color,
+            opacity: 0,
+            transform: "scale(1.5)",
+            transition: "all 0.3s ease-out",
+          }}
+        >
+          ✓
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col items-center py-6">
-      {/* Divider lines */}
       <div className="flex items-center gap-3 w-full max-w-xs">
         <div className="flex-1 h-px bg-slate-200" />
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_W}
-          height={CANVAS_H}
+        <button
           onClick={handleClick}
-          className="cursor-pointer flex-shrink-0"
-        />
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
+          className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-xs cursor-pointer transition-transform select-none"
+          style={{
+            background: `radial-gradient(circle at 35% 35%, rgba(255,255,255,0.3), ${color} 60%)`,
+            boxShadow: `0 4px 12px ${color}40`,
+            animation: hovering ? "bubbleWobbleHover 0.6s ease-in-out infinite" : "bubbleWobble 3s ease-in-out infinite",
+          }}
+        >
+          <div className="text-center leading-tight">
+            <div className="text-[10px] opacity-75">Section {sectionNumber + 1}</div>
+            <div className="text-[9px] opacity-60">Pop</div>
+          </div>
+        </button>
         <div className="flex-1 h-px bg-slate-200" />
       </div>
       <p className="text-xs text-slate-400 mt-1">
         {sectionNumber + 1} of {totalSections}
       </p>
+      <style>{`
+        @keyframes bubbleWobble {
+          0% { transform: translateY(0px) scaleX(1) scaleY(1); }
+          25% { transform: translateY(-5px) scaleX(1.01) scaleY(0.99); }
+          50% { transform: translateY(-2px) scaleX(0.99) scaleY(1.01); }
+          75% { transform: translateY(-6px) scaleX(1.005) scaleY(0.995); }
+          100% { transform: translateY(0px) scaleX(1) scaleY(1); }
+        }
+        @keyframes bubbleWobbleHover {
+          0% { transform: translateY(0px) scaleX(1) scaleY(1); }
+          20% { transform: translateY(-4px) scaleX(1.02) scaleY(0.98); }
+          40% { transform: translateY(2px) scaleX(0.98) scaleY(1.02); }
+          60% { transform: translateY(-3px) scaleX(1.015) scaleY(0.985); }
+          80% { transform: translateY(1px) scaleX(0.99) scaleY(1.01); }
+          100% { transform: translateY(0px) scaleX(1) scaleY(1); }
+        }
+      `}</style>
     </div>
   );
 }

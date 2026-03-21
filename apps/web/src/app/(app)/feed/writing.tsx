@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +22,7 @@ import {
   PRIZE_DISTRIBUTION,
   SUBSCRIPTION_TIERS,
   MAX_GENRES_PER_STORY,
+  REACTION_TYPES,
 } from "@poplit/core/constants";
 import { countWords, formatCents, formatCountdown, splitIntoSections } from "@poplit/core/utils";
 import { AvatarPicker } from "@/components/ui/Avatar";
@@ -164,7 +165,7 @@ export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
 
         setStories(
           storyData.map((s: any) => {
-            const score = s.scores?.[0] ?? null;
+            const score = Array.isArray(s.scores) ? s.scores[0] ?? null : s.scores ?? null;
             const exit = exitMap[s.id];
             return {
               id: s.id,
@@ -350,7 +351,7 @@ export function WritingMode({ isAdmin = false }: { isAdmin?: boolean }) {
       {/* Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {activeTab === "overview" && (
-          <OverviewTab user={user} stories={stories} popcycle={popcycle} />
+          <OverviewTab user={user} stories={stories} popcycle={popcycle} supabase={supabase} />
         )}
         {activeTab === "stories" && (
           <MyStoriesTab user={user} supabase={supabase} onSubmit={() => setActiveTab("submit")} />
@@ -384,11 +385,14 @@ function OverviewTab({
   user,
   stories,
   popcycle,
+  supabase,
 }: {
   user: UserProfile | null;
   stories: StoryWithScore[];
   popcycle: Popcycle | null;
+  supabase: ReturnType<typeof createClient>;
 }) {
+  const [expandedStoryId, setExpandedStoryId] = useState<string | null>(null);
   const totalPops = stories.reduce((sum, s) => sum + s.display_score, 0);
   const bestRank = stories
     .filter((s) => s.rank !== null)
@@ -498,7 +502,8 @@ function OverviewTab({
             {stories.map((story) => (
               <div
                 key={story.id}
-                className="rounded-xl border border-slate-200 bg-white p-5 hover:border-purple-300 transition-colors"
+                onClick={() => setExpandedStoryId((prev) => prev === story.id ? null : story.id)}
+                className="rounded-xl border border-slate-200 bg-white p-5 hover:border-purple-300 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
@@ -552,6 +557,9 @@ function OverviewTab({
                     </p>
                   </div>
                 )}
+                {expandedStoryId === story.id && (
+                  <StoryStatsPanel storyId={story.id} supabase={supabase} />
+                )}
               </div>
             ))}
           </div>
@@ -598,6 +606,7 @@ function MyStoriesTab({
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [expandedStoryId, setExpandedStoryId] = useState<string | null>(null);
 
   const inputClass =
     "w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-shadow";
@@ -893,7 +902,8 @@ function MyStoriesTab({
                   {group.map((story, si) => (
                     <div
                       key={story.id}
-                      className={`rounded-xl border border-slate-200 bg-white p-5 ${group.length > 1 && si > 0 ? "ml-4 border-l-4 border-l-purple-200" : ""}`}
+                      onClick={() => setExpandedStoryId((prev) => prev === story.id ? null : story.id)}
+                      className={`rounded-xl border border-slate-200 bg-white p-5 cursor-pointer hover:border-purple-300 transition-colors ${group.length > 1 && si > 0 ? "ml-4 border-l-4 border-l-purple-200" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0 flex-1">
@@ -922,7 +932,7 @@ function MyStoriesTab({
 
                       {/* Link as sequel */}
                       {linkingId === story.id ? (
-                        <div className="mt-3 flex items-center gap-2">
+                        <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                           <select
                             className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm"
                             defaultValue={story.predecessor_id ?? ""}
@@ -946,11 +956,14 @@ function MyStoriesTab({
                         </div>
                       ) : (
                         <button
-                          onClick={() => setLinkingId(story.id)}
+                          onClick={(e) => { e.stopPropagation(); setLinkingId(story.id); }}
                           className="mt-2 text-xs font-medium text-purple-500 hover:text-purple-700 transition-colors"
                         >
                           Link as sequel to...
                         </button>
+                      )}
+                      {expandedStoryId === story.id && (
+                        <StoryStatsPanel storyId={story.id} supabase={supabase} />
                       )}
                     </div>
                   ))}
@@ -2723,6 +2736,8 @@ function GardenTab({
   const [gardenItems, setGardenItems] = useState<GardenStory[]>([]);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [activeStory, setActiveStory] = useState<any>(null);
+  const [activeStoryLoading, setActiveStoryLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -2771,6 +2786,10 @@ function GardenTab({
         </p>
       </div>
 
+      {activeStory && (
+        <GardenReader story={activeStory} supabase={supabase} onClose={() => setActiveStory(null)} />
+      )}
+
       {gardenItems.length === 0 ? (
         <div className="text-center py-16 rounded-xl border border-slate-200 bg-white">
           <div className="text-4xl mb-4">&#127803;</div>
@@ -2813,10 +2832,20 @@ function GardenTab({
                 </p>
                 <div className="mt-3 flex gap-2">
                   <button
-                    onClick={() => setMode("reading")}
-                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                    onClick={async () => {
+                      setActiveStoryLoading(true);
+                      const { data } = await supabase
+                        .from("stories")
+                        .select("*, users!author_id(pen_name, real_name, avatar_url)")
+                        .eq("id", story.id)
+                        .single();
+                      setActiveStory(data);
+                      setActiveStoryLoading(false);
+                    }}
+                    disabled={activeStoryLoading}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-50"
                   >
-                    Read Again
+                    {activeStoryLoading ? "Loading..." : "Read Again"}
                   </button>
                   <button
                     onClick={() => handleRemove(item.id)}
@@ -2829,6 +2858,249 @@ function GardenTab({
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ====================================================================
+   Shared: GardenReader (re-read with pop recording)
+   ==================================================================== */
+
+function GardenReader({
+  story,
+  supabase,
+  onClose,
+}: {
+  story: any;
+  supabase: ReturnType<typeof createClient>;
+  onClose: () => void;
+}) {
+  const sections = [story.section_1, story.section_2, story.section_3, story.section_4, story.section_5].filter(Boolean) as string[];
+  const sectionTimers = useRef<Record<number, number>>({});
+  const recordedSections = useRef<Set<number>>(new Set());
+
+  // Record re-read pop when section comes into view
+  const handleSectionView = useCallback(
+    async (sectionIndex: number) => {
+      if (recordedSections.current.has(sectionIndex)) return;
+      sectionTimers.current[sectionIndex] = Date.now();
+    },
+    [],
+  );
+
+  // Record re-read when scrolling past a section (fire-and-forget)
+  const handleSectionRead = useCallback(
+    async (sectionIndex: number) => {
+      if (recordedSections.current.has(sectionIndex)) return;
+      const startTime = sectionTimers.current[sectionIndex];
+      if (!startTime) return;
+      const duration = Date.now() - startTime;
+      if (duration < 5000) return; // at least 5s for a re-read to count
+      recordedSections.current.add(sectionIndex);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/score-pop`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            story_id: story.id,
+            section_opened: sectionIndex,
+            read_duration_ms: duration,
+          }),
+        },
+      ).catch(() => {});
+    },
+    [supabase, story.id],
+  );
+
+  // Start timers on mount for all sections
+  useEffect(() => {
+    sections.forEach((_, i) => handleSectionView(i + 1));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Record re-reads on unmount (when reader closes)
+  useEffect(() => {
+    return () => {
+      sections.forEach((_, i) => {
+        handleSectionRead(i + 1);
+      });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-800">{story.title}</h2>
+          <p className="text-sm text-slate-500 italic">{story.hook}</p>
+          <p className="mt-1 text-xs text-slate-400">
+            by @{story.users?.pen_name ?? "unknown"}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 transition-colors"
+        >
+          Close
+        </button>
+      </div>
+      <div className="prose prose-slate max-w-none whitespace-pre-wrap leading-relaxed text-slate-700">
+        {sections.map((section, i) => (
+          <div key={i}>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mt-6 mb-2">
+              Section {i + 1}
+            </p>
+            {section}
+            {i < sections.length - 1 && <hr className="my-4 border-slate-200" />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ====================================================================
+   Shared: StoryStatsPanel
+   ==================================================================== */
+
+function StoryStatsPanel({
+  storyId,
+  supabase,
+}: {
+  storyId: string;
+  supabase: ReturnType<typeof createClient>;
+}) {
+  const [data, setData] = useState<{
+    score: any;
+    reactions: any[];
+    pops: any[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: score }, { data: reactions }, { data: pops }] = await Promise.all([
+        supabase.from("scores").select("*").eq("story_id", storyId).maybeSingle(),
+        supabase.from("reactions").select("reaction_type, text_snippet, comment, section").eq("story_id", storyId),
+        supabase.from("pops").select("section_opened, reader_id").eq("story_id", storyId),
+      ]);
+      setData({ score, reactions: reactions ?? [], pops: pops ?? [] });
+      setLoading(false);
+    }
+    load();
+  }, [storyId, supabase]);
+
+  if (loading) {
+    return (
+      <div className="mt-3 pt-3 border-t border-slate-100 flex justify-center py-4">
+        <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { score, reactions, pops } = data;
+  const sectionReads = [1, 2, 3, 4, 5].map((s) => score?.[`section_${s}_reads`] ?? 0);
+  const maxReads = Math.max(...sectionReads, 1);
+
+  // Count reactions by type
+  const reactionCounts: Record<string, number> = {};
+  for (const r of reactions) {
+    reactionCounts[r.reaction_type] = (reactionCounts[r.reaction_type] || 0) + 1;
+  }
+
+  // Get comments (reactions with comment field)
+  const comments = reactions.filter((r) => r.comment);
+
+  // Count unique readers
+  const uniqueReaders = new Set(pops.map((p: any) => p.reader_id)).size;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-100 space-y-4">
+      {/* Score overview */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {[
+          { label: "Score", value: (score?.display_score ?? 0).toFixed(1) },
+          { label: "Readers", value: String(uniqueReaders) },
+          { label: "Completion", value: `${((score?.completion_rate ?? 0) * 100).toFixed(0)}%` },
+          { label: "Reactions", value: String(reactions.length) },
+          { label: "Gardens", value: String(score?.garden_count ?? 0) },
+          { label: "Re-reads", value: String(score?.re_read_count ?? 0) },
+        ].map((stat) => (
+          <div key={stat.label} className="text-center rounded-lg bg-slate-50 py-2 px-1">
+            <p className="text-sm font-extrabold text-purple-600">{stat.value}</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wider">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Read-through funnel */}
+      <div>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Read-Through Rate</p>
+        <div className="space-y-1.5">
+          {sectionReads.map((reads, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-[10px] font-medium text-slate-400 w-5 text-right">S{i + 1}</span>
+              <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-purple-500 transition-all"
+                  style={{ width: `${(reads / maxReads) * 100}%`, minWidth: reads > 0 ? 8 : 0 }}
+                />
+              </div>
+              <span className="text-[10px] font-medium text-slate-500 w-5">{reads}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Reactions breakdown */}
+      {reactions.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Reactions</p>
+          <div className="flex gap-3">
+            {[
+              { key: "like", emoji: "\ud83d\udc4d" },
+              { key: "love", emoji: "\u2764\ufe0f" },
+              { key: "laugh", emoji: "\ud83d\ude02" },
+              { key: "cry", emoji: "\ud83d\ude22" },
+            ].map((rt) => (
+              <div key={rt.key} className="flex items-center gap-1 text-sm">
+                <span>{rt.emoji}</span>
+                <span className="font-semibold text-slate-700">{reactionCounts[rt.key] ?? 0}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Reader feedback (comments) */}
+      {comments.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Reader Feedback</p>
+          <div className="space-y-2">
+            {comments.map((c, i) => (
+              <div key={i} className="rounded-lg bg-slate-50 p-3">
+                <p className="text-xs text-slate-400 italic truncate">
+                  &ldquo;{c.text_snippet}&rdquo;
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {["\ud83d\udc4d", "\u2764\ufe0f", "\ud83d\ude02", "\ud83d\ude22"][[
+                    "like", "love", "laugh", "cry"
+                  ].indexOf(c.reaction_type)] ?? "\ud83d\udc4d"}{" "}
+                  {c.comment}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

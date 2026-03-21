@@ -67,7 +67,6 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
 
   // Reaction state
   const [reactions, setReactions] = useState<ReactionRecord[]>([]);
-  const [reactionsRemaining, setReactionsRemaining] = useState(10);
   const [reactionToolbar, setReactionToolbar] = useState<{
     x: number;
     y: number;
@@ -75,6 +74,8 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     startOffset: number;
     endOffset: number;
     snippet: string;
+    selectedType?: string;
+    comment?: string;
   } | null>(null);
 
   // Survey state
@@ -206,11 +207,12 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     const readDuration = Date.now() - sectionStartRef.current;
     const sectionToRecord = currentSection + 1; // 1-indexed
 
+    // Fire-and-forget: record pop in background, advance section immediately
     if (readDuration >= MIN_READ_TIME_MS && !poppedSections.has(sectionToRecord)) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        try {
-          await fetch(
+      setPoppedSections((prev) => new Set([...prev, sectionToRecord]));
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          fetch(
             `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/score-pop`,
             {
               method: "POST",
@@ -224,12 +226,9 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                 read_duration_ms: readDuration,
               }),
             },
-          );
-        } catch {
-          // Pop is best-effort
+          ).catch(() => { /* best-effort */ });
         }
-      }
-      setPoppedSections((prev) => new Set([...prev, sectionToRecord]));
+      });
     }
 
     sectionStartRef.current = Date.now();
@@ -257,35 +256,70 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
 
   // Handle next story after completion
   const handleNextStory = useCallback(() => {
+    const finishedId = activeStory?.id;
     setActiveStory(null);
     setCompleted(false);
-    setCurrentIndex((prev) => (prev + 1) % Math.max(stories.length, 1));
-  }, [stories.length]);
+    setSurveyStep(null);
+    setQ1Answer(null);
+    if (finishedId) {
+      setStories((prev) => {
+        const filtered = prev.filter((s) => s.id !== finishedId);
+        if (filtered.length === 0) setAllRead(true);
+        return filtered;
+      });
+      setCurrentIndex(0);
+    }
+  }, [activeStory?.id]);
+
+  // Calculate character offset within a container's text content
+  const getTextOffset = useCallback((container: Node, targetNode: Node, targetOffset: number): number => {
+    let offset = 0;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      if (node === targetNode) return offset + targetOffset;
+      offset += (node.textContent?.length ?? 0);
+      node = walker.nextNode();
+    }
+    return offset + targetOffset;
+  }, []);
 
   // Handle text selection for reactions
   const handleTextSelect = useCallback(() => {
-    if (!activeStory || reactionsRemaining <= 0) return;
+    if (!activeStory) return;
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-      setReactionToolbar(null);
+      if (!reactionToolbar?.selectedType) setReactionToolbar(null);
       return;
     }
     const range = sel.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-    const sectionIndex = currentSection + 1; // 1-indexed
+
+    // Find which section container the selection is in
+    let sectionEl = range.startContainer as HTMLElement | null;
+    while (sectionEl && !sectionEl.dataset?.section) {
+      sectionEl = sectionEl.parentElement;
+    }
+    const sectionIndex = sectionEl?.dataset?.section ? parseInt(sectionEl.dataset.section, 10) : currentSection + 1;
+
+    // Calculate offsets relative to the section container's full text
+    const container = sectionEl ?? range.startContainer.parentElement;
+    const startOffset = container ? getTextOffset(container, range.startContainer, range.startOffset) : range.startOffset;
+    const endOffset = container ? getTextOffset(container, range.endContainer, range.endOffset) : range.endOffset;
+
     setReactionToolbar({
       x: rect.left + rect.width / 2,
       y: rect.top - 10,
       section: sectionIndex,
-      startOffset: range.startOffset,
-      endOffset: range.endOffset,
-      snippet: sel.toString().slice(0, 200),
+      startOffset,
+      endOffset,
+      snippet: sel.toString().slice(0, 500),
     });
-  }, [activeStory, currentSection, reactionsRemaining]);
+  }, [activeStory, currentSection, getTextOffset, reactionToolbar?.selectedType]);
 
   // Submit a reaction
   const submitReaction = useCallback(
-    async (type: string) => {
+    async (type: string, comment?: string) => {
       if (!reactionToolbar || !activeStory || !userId) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -306,13 +340,13 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
               end_offset: reactionToolbar.endOffset,
               reaction_type: type,
               text_snippet: reactionToolbar.snippet,
+              comment: comment || undefined,
             }),
           },
         );
         const result = await res.json();
         if (res.ok && result.reaction) {
           setReactions((prev) => [...prev, result.reaction]);
-          setReactionsRemaining(result.reactions_remaining);
         }
       } catch {
         // Silently fail — reaction is non-critical
@@ -321,6 +355,14 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     },
     [reactionToolbar, activeStory, userId, supabase],
   );
+
+  // Listen for text selection globally so drags ending outside the text div still register
+  useEffect(() => {
+    if (!activeStory) return;
+    const handler = () => handleTextSelect();
+    document.addEventListener("mouseup", handler);
+    return () => document.removeEventListener("mouseup", handler);
+  }, [activeStory, handleTextSelect]);
 
   // Load existing reactions when opening a story
   useEffect(() => {
@@ -332,7 +374,6 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         .eq("story_id", activeStory.id)
         .eq("reader_id", userId);
       setReactions((data ?? []) as ReactionRecord[]);
-      setReactionsRemaining(10 - (data?.length ?? 0));
     })();
   }, [activeStory?.id, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -431,6 +472,18 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         setInGarden(true);
         setGardenCount((c) => c + 1);
       }
+
+      // Update garden_count and garden_boost on the scores table
+      const { count: totalGardens } = await supabase
+        .from("poppy_gardens")
+        .select("id", { count: "exact", head: true })
+        .eq("story_id", activeStory.id);
+      const gc = totalGardens ?? 0;
+      const boost = gc >= 10 ? 1.50 : gc >= 5 ? 1.35 : gc >= 2 ? 1.20 : gc >= 1 ? 1.10 : 1.0;
+      await supabase
+        .from("scores")
+        .update({ garden_count: gc, garden_boost: boost })
+        .eq("story_id", activeStory.id);
     } catch {
       // Garden is best-effort
     }
@@ -450,54 +503,41 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
       const sectionReactions = reactions.filter((r) => r.section === sectionIndex);
       if (sectionReactions.length === 0) return text;
 
-      // Build a list of highlight ranges using indexOf on text_snippet
-      const REACTION_TYPE_WEIGHTS: Record<string, number> = { like: 1.0, love: 1.5, laugh: 2.0, cry: 2.0, up: 1.0 };
+      // Use start_offset and end_offset directly, clamped to text length
       const ranges: { start: number; end: number; type: string }[] = [];
-      const used = new Set<string>();
-
       for (const r of sectionReactions) {
-        if (!r.text_snippet) continue;
-        const key = `${r.text_snippet}`;
-        // Find occurrence in text, skipping already-used identical snippets
-        let searchFrom = 0;
-        while (used.has(`${key}:${searchFrom}`)) {
-          const idx = text.indexOf(r.text_snippet, searchFrom);
-          if (idx === -1) break;
-          searchFrom = idx + 1;
+        const start = Math.max(0, Math.min(r.start_offset, text.length));
+        const end = Math.max(start, Math.min(r.end_offset, text.length));
+        if (end > start) {
+          ranges.push({ start, end, type: r.reaction_type });
         }
-        const idx = text.indexOf(r.text_snippet, searchFrom);
-        if (idx === -1) continue;
-        used.add(`${key}:${searchFrom}`);
-        ranges.push({ start: idx, end: idx + r.text_snippet.length, type: r.reaction_type });
       }
 
       if (ranges.length === 0) return text;
 
-      // Sort ranges by start position and merge overlapping ones
+      // Sort and merge overlapping ranges (keep higher-weight type)
+      const WEIGHTS: Record<string, number> = { like: 1, love: 1.5, laugh: 2, cry: 2, up: 1 };
       ranges.sort((a, b) => a.start - b.start);
-      const merged: { start: number; end: number; type: string }[] = [ranges[0]!];
+      const merged: { start: number; end: number; type: string }[] = [{ ...ranges[0]! }];
       for (let i = 1; i < ranges.length; i++) {
         const prev = merged[merged.length - 1]!;
         const curr = ranges[i]!;
         if (curr.start <= prev.end) {
           prev.end = Math.max(prev.end, curr.end);
-          // Use the higher-weight type when merging
-          if ((REACTION_TYPE_WEIGHTS[curr.type] ?? 1.0) > (REACTION_TYPE_WEIGHTS[prev.type] ?? 1.0)) {
-            prev.type = curr.type;
-          }
+          if ((WEIGHTS[curr.type] ?? 0) > (WEIGHTS[prev.type] ?? 0)) prev.type = curr.type;
         } else {
-          merged.push(curr);
+          merged.push({ ...curr });
         }
       }
 
-      // Build JSX fragments
       const highlightColors: Record<string, string> = {
         like: "bg-orange-100",
         love: "bg-pink-100",
         laugh: "bg-yellow-100",
         cry: "bg-blue-100",
-        up: "bg-orange-100", // legacy
+        up: "bg-orange-100",
       };
+
       const parts: ReactNode[] = [];
       let cursor = 0;
       for (const range of merged) {
@@ -505,10 +545,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
           parts.push(text.slice(cursor, range.start));
         }
         parts.push(
-          <mark
-            key={`hl-${range.start}`}
-            className={`${highlightColors[range.type] ?? "bg-orange-100"} rounded px-0.5`}
-          >
+          <mark key={`hl-${range.start}`} className={`${highlightColors[range.type] ?? "bg-orange-100"} rounded px-0.5`}>
             {text.slice(range.start, range.end)}
           </mark>,
         );
@@ -517,7 +554,6 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
       if (cursor < text.length) {
         parts.push(text.slice(cursor));
       }
-
       return <>{parts}</>;
     },
     [reactions],
@@ -642,6 +678,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
 
                 <div
                   className="prose prose-slate max-w-none whitespace-pre-wrap leading-relaxed text-slate-700 mb-6"
+                  data-section={String(i + 1)}
                   onMouseUp={handleTextSelect}
                   onTouchEnd={handleTextSelect}
                 >
@@ -782,39 +819,70 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         {/* Reaction toolbar (floating) */}
         {reactionToolbar && (
           <div
-            className="fixed z-50 flex items-center gap-1 rounded-full bg-white shadow-lg border border-slate-200 px-2 py-1"
+            className="fixed z-50 rounded-2xl bg-white shadow-lg border border-slate-200 px-3 py-2"
             style={{
-              left: Math.max(60, Math.min(reactionToolbar.x, window.innerWidth - 60)),
-              top: Math.max(40, reactionToolbar.y - 44),
+              left: Math.max(80, Math.min(reactionToolbar.x, window.innerWidth - 80)),
+              top: Math.max(40, reactionToolbar.y - (reactionToolbar.selectedType ? 110 : 50)),
               transform: "translateX(-50%)",
             }}
           >
-            {REACTION_TYPES.map((rt) => (
-              <button
-                key={rt.key}
-                onClick={() => submitReaction(rt.key)}
-                className="px-2 py-1 rounded-full text-lg hover:bg-slate-100 transition-colors"
-                title={rt.label}
-              >
-                {rt.emoji}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                setReactionToolbar(null);
-                window.getSelection()?.removeAllRanges();
-              }}
-              className="px-1.5 py-0.5 rounded-full text-xs text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* Reactions remaining counter */}
-        {reactionsRemaining < 10 && (
-          <div className="fixed bottom-4 right-4 z-40 rounded-full bg-white shadow border border-slate-200 px-3 py-1.5 text-xs text-slate-500">
-            {reactionsRemaining} reaction{reactionsRemaining !== 1 ? "s" : ""} remaining
+            {!reactionToolbar.selectedType ? (
+              <div className="flex items-center gap-1">
+                {REACTION_TYPES.map((rt) => (
+                  <button
+                    key={rt.key}
+                    onClick={() => setReactionToolbar((prev) => prev ? { ...prev, selectedType: rt.key } : null)}
+                    className="px-2 py-1 rounded-full text-lg hover:bg-slate-100 transition-colors"
+                    title={rt.label}
+                  >
+                    {rt.emoji}
+                  </button>
+                ))}
+                <button
+                  onClick={() => { setReactionToolbar(null); window.getSelection()?.removeAllRanges(); }}
+                  className="px-1.5 py-0.5 rounded-full text-xs text-slate-400 hover:text-slate-600 transition-colors ml-1"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2" style={{ minWidth: 220 }}>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-lg">{REACTION_TYPES.find((r) => r.key === reactionToolbar.selectedType)?.emoji}</span>
+                  <span className="text-slate-500 font-medium">
+                    {REACTION_TYPES.find((r) => r.key === reactionToolbar.selectedType)?.label}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  maxLength={200}
+                  placeholder="Why? (optional)"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+                  value={reactionToolbar.comment ?? ""}
+                  onChange={(e) => setReactionToolbar((prev) => prev ? { ...prev, comment: e.target.value } : null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      submitReaction(reactionToolbar.selectedType!, reactionToolbar.comment ?? "");
+                    }
+                  }}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => submitReaction(reactionToolbar.selectedType!, reactionToolbar.comment ?? "")}
+                    className="flex-1 px-3 py-1.5 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 transition-colors"
+                  >
+                    {reactionToolbar.comment ? "Send" : "Skip"}
+                  </button>
+                  <button
+                    onClick={() => setReactionToolbar((prev) => prev ? { ...prev, selectedType: undefined, comment: undefined } : null)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-500 hover:bg-slate-50 transition-colors"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

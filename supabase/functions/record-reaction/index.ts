@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { story_id, section, start_offset, end_offset, text_snippet, reaction_type: rawReactionType } = await req.json();
+    const { story_id, section, start_offset, end_offset, text_snippet, reaction_type: rawReactionType, comment } = await req.json();
 
     // Validate and default reaction_type
     const VALID_REACTION_TYPES = ["like", "love", "laugh", "cry"];
@@ -108,7 +108,7 @@ Deno.serve(async (req: Request) => {
       convergenceMultiplier = TIER1_MULTIPLIER;
     }
 
-    // Insert reaction (up-only)
+    // Insert reaction
     const { data: reaction, error: insertError } = await supabase
       .from("reactions")
       .insert({
@@ -120,6 +120,7 @@ Deno.serve(async (req: Request) => {
         reaction_type,
         text_snippet: (text_snippet ?? "").slice(0, 500),
         convergence_multiplier: convergenceMultiplier,
+        comment: comment ? String(comment).slice(0, 200) : null,
       })
       .select()
       .single();
