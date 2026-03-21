@@ -78,11 +78,26 @@ export const popcycleSchema = z.object({
   prompt_5: z.string().min(1, "Prompt 5 is required").max(500),
   description: z.string().max(1000).optional(),
   format: z.enum(["standard", "flash", "themed", "sponsored"]),
-  submissions_open_at: z.string().datetime(),
-  submissions_close_at: z.string().datetime(),
-  reading_open_at: z.string().datetime(),
-  reading_close_at: z.string().datetime(),
-  popoff_at: z.string().datetime(),
+  submissions_open_at: z.preprocess(
+    (val) => typeof val === "string" ? new Date(val).toISOString() : val,
+    z.string().datetime(),
+  ),
+  submissions_close_at: z.preprocess(
+    (val) => typeof val === "string" ? new Date(val).toISOString() : val,
+    z.string().datetime(),
+  ),
+  reading_open_at: z.preprocess(
+    (val) => typeof val === "string" ? new Date(val).toISOString() : val,
+    z.string().datetime(),
+  ),
+  reading_close_at: z.preprocess(
+    (val) => typeof val === "string" ? new Date(val).toISOString() : val,
+    z.string().datetime(),
+  ),
+  popoff_at: z.preprocess(
+    (val) => typeof val === "string" ? new Date(val).toISOString() : val,
+    z.string().datetime(),
+  ),
   entry_fee_cents: z.number().int().min(0),
   house_pct: z.number().int().min(0).max(100).default(15),
   first_pct: z.number().int().min(0).max(100).default(65),
