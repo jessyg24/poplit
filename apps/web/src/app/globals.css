@@ -12,16 +12,6 @@
   --color-border: #E2E8F0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #0F172A;
-    --color-surface: #1E293B;
-    --color-text: #F1F5F9;
-    --color-text-secondary: #94A3B8;
-    --color-border: #334155;
-  }
-}
-
 body {
   background: var(--color-background);
   color: var(--color-text);

@@ -180,9 +180,18 @@ Deno.serve(async (req: Request) => {
 
     const sectionReadCol = `section_${section_opened}_reads` as const;
 
+    // Count unique readers
+    const { data: uniqueReaders } = await supabase
+      .from("pops")
+      .select("reader_id")
+      .eq("story_id", story_id);
+    const totalReaders = new Set((uniqueReaders ?? []).map((r: { reader_id: string }) => r.reader_id)).size;
+
     if (currentScore) {
       const updateData: Record<string, unknown> = {
         raw_score: rawScore,
+        display_score: rawScore,
+        total_readers: totalReaders,
         updated_at: new Date().toISOString(),
       };
 
