@@ -19,6 +19,7 @@ interface SectionPopBarrierProps {
   color: string;
   onPop: () => void;
   disabled?: boolean;
+  overlay?: boolean;
 }
 
 export function SectionPopBarrier({
@@ -27,6 +28,7 @@ export function SectionPopBarrier({
   color,
   onPop,
   disabled,
+  overlay,
 }: SectionPopBarrierProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [popped, setPopped] = useState(false);
@@ -35,9 +37,9 @@ export function SectionPopBarrier({
   const wobblePhaseRef = useRef(Math.random() * Math.PI * 2);
   const activeRef = useRef(false);
 
-  const BUBBLE_R = 32;
-  const CANVAS_W = 260;
-  const CANVAS_H = 80;
+  const BUBBLE_R = overlay ? 60 : 32;
+  const CANVAS_W = overlay ? 240 : 260;
+  const CANVAS_H = overlay ? 160 : 80;
 
   // Draw the barrier bubble
   useEffect(() => {
@@ -66,7 +68,7 @@ export function SectionPopBarrier({
           ctx!.beginPath();
           for (let i = 0; i <= segments; i++) {
             const theta = (i / segments) * Math.PI * 2;
-            const wobble = Math.sin(2 * theta + wobblePhaseRef.current) * 2;
+            const wobble = Math.sin(2 * theta + wobblePhaseRef.current) * (overlay ? 4 : 2);
             const r = BUBBLE_R + wobble;
             const px = cx + Math.cos(theta) * r;
             const py = cy + Math.sin(theta) * r;
@@ -86,20 +88,24 @@ export function SectionPopBarrier({
           ctx!.stroke();
 
           // Shine
+          const shineOffX = overlay ? -14 : -8;
+          const shineOffY = overlay ? -18 : -10;
+          const shineRx = overlay ? 14 : 8;
+          const shineRy = overlay ? 9 : 5;
           ctx!.beginPath();
-          ctx!.ellipse(cx - 8, cy - 10, 8, 5, -0.4, 0, Math.PI * 2);
+          ctx!.ellipse(cx + shineOffX, cy + shineOffY, shineRx, shineRy, -0.4, 0, Math.PI * 2);
           ctx!.fillStyle = "rgba(255,255,255,0.25)";
           ctx!.fill();
 
           // Label
           ctx!.fillStyle = "#fff";
-          ctx!.font = "bold 11px system-ui, sans-serif";
+          ctx!.font = overlay ? "bold 16px system-ui, sans-serif" : "bold 11px system-ui, sans-serif";
           ctx!.textAlign = "center";
           ctx!.textBaseline = "middle";
-          ctx!.fillText(`Section ${sectionNumber + 1}`, cx, cy - 3);
-          ctx!.font = "10px system-ui, sans-serif";
+          ctx!.fillText(`Section ${sectionNumber + 1}`, cx, cy - (overlay ? 6 : 3));
+          ctx!.font = overlay ? "14px system-ui, sans-serif" : "10px system-ui, sans-serif";
           ctx!.fillStyle = "rgba(255,255,255,0.75)";
-          ctx!.fillText("Pop to continue", cx, cy + 11);
+          ctx!.fillText("Pop to continue", cx, cy + (overlay ? 16 : 11));
         }
 
         // Pop particles
@@ -113,14 +119,16 @@ export function SectionPopBarrier({
           ctx!.beginPath();
           ctx!.arc(pop.x, pop.y, BUBBLE_R * (0.3 + elapsed * 1.5), 0, Math.PI * 2);
           ctx!.strokeStyle = pop.color;
-          ctx!.lineWidth = 2;
+          ctx!.lineWidth = overlay ? 3 : 2;
           ctx!.stroke();
 
-          for (let i = 0; i < 10; i++) {
-            const angle = (i / 10) * Math.PI * 2;
-            const dist = elapsed * (40 + i * 8);
+          const particleCount = overlay ? 16 : 10;
+          for (let i = 0; i < particleCount; i++) {
+            const angle = (i / particleCount) * Math.PI * 2;
+            const dist = elapsed * (overlay ? 70 + i * 10 : 40 + i * 8);
+            const baseSize = overlay ? 6 + (i % 3) * 3 : 4 + (i % 3) * 2;
             ctx!.beginPath();
-            ctx!.arc(pop.x + Math.cos(angle) * dist, pop.y + Math.sin(angle) * dist, (4 + (i % 3) * 2) * (1 - elapsed), 0, Math.PI * 2);
+            ctx!.arc(pop.x + Math.cos(angle) * dist, pop.y + Math.sin(angle) * dist, baseSize * (1 - elapsed), 0, Math.PI * 2);
             ctx!.fillStyle = pop.color;
             ctx!.fill();
           }
@@ -143,7 +151,7 @@ export function SectionPopBarrier({
       cancelAnimationFrame(rafRef.current);
       activeRef.current = false;
     };
-  }, [popped, color, sectionNumber]);
+  }, [popped, color, sectionNumber, overlay]);
 
   const handleClick = useCallback(() => {
     if (popped || disabled) return;
@@ -155,7 +163,25 @@ export function SectionPopBarrier({
       time: Date.now(),
     });
     setTimeout(onPop, 300);
-  }, [popped, disabled, color, onPop]);
+  }, [popped, disabled, color, onPop, CANVAS_W, CANVAS_H]);
+
+  // Overlay mode: absolute-positioned bubble over blurred text
+  if (overlay) {
+    if (popped) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+          <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} />
+        </div>
+      );
+    }
+    return (
+      <div className="absolute inset-0 flex items-center justify-center z-10">
+        <div className="relative cursor-pointer" onClick={handleClick}>
+          <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} />
+        </div>
+      </div>
+    );
+  }
 
   if (popped) {
     return (
@@ -174,7 +200,7 @@ export function SectionPopBarrier({
     <div className="flex flex-col items-center py-6">
       {/* Divider lines */}
       <div className="flex items-center gap-3 w-full max-w-xs">
-        <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+        <div className="flex-1 h-px bg-slate-200" />
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
@@ -182,7 +208,7 @@ export function SectionPopBarrier({
           onClick={handleClick}
           className="cursor-pointer flex-shrink-0"
         />
-        <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+        <div className="flex-1 h-px bg-slate-200" />
       </div>
       <p className="text-xs text-slate-400 mt-1">
         {sectionNumber + 1} of {totalSections}

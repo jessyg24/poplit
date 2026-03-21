@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { StoryBubbleCanvas, type StoryBubbleData } from "@/components/ui/story-bubble";
 import { SectionPopBarrier } from "@/components/ui/section-pop-barrier";
@@ -317,7 +317,6 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         // Silently fail — reaction is non-critical
       }
       setReactionToolbar(null);
-      window.getSelection()?.removeAllRanges();
     },
     [reactionToolbar, activeStory, userId, supabase],
   );
@@ -444,6 +443,73 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     window.location.href = "/";
   }, [supabase]);
 
+  // Helper: render section text with reaction highlights overlaid
+  const renderSectionWithHighlights = useCallback(
+    (text: string, sectionIndex: number): ReactNode => {
+      const sectionReactions = reactions.filter((r) => r.section === sectionIndex);
+      if (sectionReactions.length === 0) return text;
+
+      // Build a list of highlight ranges using indexOf on text_snippet
+      const ranges: { start: number; end: number }[] = [];
+      const used = new Set<string>();
+
+      for (const r of sectionReactions) {
+        if (!r.text_snippet) continue;
+        const key = `${r.text_snippet}`;
+        // Find occurrence in text, skipping already-used identical snippets
+        let searchFrom = 0;
+        while (used.has(`${key}:${searchFrom}`)) {
+          const idx = text.indexOf(r.text_snippet, searchFrom);
+          if (idx === -1) break;
+          searchFrom = idx + 1;
+        }
+        const idx = text.indexOf(r.text_snippet, searchFrom);
+        if (idx === -1) continue;
+        used.add(`${key}:${searchFrom}`);
+        ranges.push({ start: idx, end: idx + r.text_snippet.length });
+      }
+
+      if (ranges.length === 0) return text;
+
+      // Sort ranges by start position and merge overlapping ones
+      ranges.sort((a, b) => a.start - b.start);
+      const merged: { start: number; end: number }[] = [ranges[0]!];
+      for (let i = 1; i < ranges.length; i++) {
+        const prev = merged[merged.length - 1]!;
+        const curr = ranges[i]!;
+        if (curr.start <= prev.end) {
+          prev.end = Math.max(prev.end, curr.end);
+        } else {
+          merged.push(curr);
+        }
+      }
+
+      // Build JSX fragments
+      const parts: ReactNode[] = [];
+      let cursor = 0;
+      for (const range of merged) {
+        if (range.start > cursor) {
+          parts.push(text.slice(cursor, range.start));
+        }
+        parts.push(
+          <mark
+            key={`hl-${range.start}`}
+            className="bg-orange-100 rounded px-0.5"
+          >
+            {text.slice(range.start, range.end)}
+          </mark>,
+        );
+        cursor = range.end;
+      }
+      if (cursor < text.length) {
+        parts.push(text.slice(cursor));
+      }
+
+      return <>{parts}</>;
+    },
+    [reactions],
+  );
+
   // ---------- Inline Reader ----------
   if (activeStory) {
     const sections = [
@@ -518,10 +584,40 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         {/* Sections */}
         <div className="max-w-2xl mx-auto px-4 pb-32">
           {sections.map((section, i) => {
-            if (i > currentSection) return null;
+            if (i > currentSection + 1) return null;
 
-            const isCurrentVisible = i === currentSection;
+            const isRead = i < currentSection;
+            const isCurrent = i === currentSection;
+            const isNext = i === currentSection + 1;
             const isLast = i === sections.length - 1;
+
+            // Next section: show text blurred with bubble overlay
+            if (isNext && !completed) {
+              return (
+                <div key={i} className="relative">
+                  <div className="mb-2">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      Section {i + 1} of {sections.length}
+                    </span>
+                  </div>
+                  <div className="blur-sm select-none pointer-events-none">
+                    <div className="prose prose-slate max-w-none whitespace-pre-wrap leading-relaxed text-slate-700 mb-6">
+                      {section}
+                    </div>
+                  </div>
+                  <SectionPopBarrier
+                    sectionNumber={i}
+                    totalSections={sections.length}
+                    color={genreColor}
+                    onPop={handleSectionPop}
+                    overlay
+                  />
+                </div>
+              );
+            }
+
+            // Only render read or current sections
+            if (!isCurrent && !isRead) return null;
 
             return (
               <div key={i}>
@@ -536,21 +632,11 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                   onMouseUp={handleTextSelect}
                   onTouchEnd={handleTextSelect}
                 >
-                  {section}
+                  {renderSectionWithHighlights(section, i + 1)}
                 </div>
 
-                {/* Pop barrier between sections */}
-                {isCurrentVisible && !isLast && !completed && (
-                  <SectionPopBarrier
-                    sectionNumber={i}
-                    totalSections={sections.length}
-                    color={genreColor}
-                    onPop={handleSectionPop}
-                  />
-                )}
-
-                {/* Completion */}
-                {isCurrentVisible && isLast && (
+                {/* Completion area for last section */}
+                {isCurrent && isLast && (
                   <div className="mt-8 text-center py-10">
                     {!completed ? (
                       <SectionPopBarrier
@@ -637,7 +723,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                 )}
 
                 {/* Divider between read sections */}
-                {i < currentSection && (
+                {isRead && (
                   <hr className="my-6 border-slate-200" />
                 )}
               </div>
