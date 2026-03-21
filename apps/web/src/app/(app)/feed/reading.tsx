@@ -61,6 +61,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
   const [poppedSections, setPoppedSections] = useState<Set<number>>(new Set());
   const [completed, setCompleted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [allRead, setAllRead] = useState(false);
   const sectionStartRef = useRef(Date.now());
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -121,9 +122,9 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         .eq("status", "published");
 
       const allStories = (storyData ?? []) as StoryRow[];
-      setStories(allStories);
 
-      // Check in-progress
+      // Categorize stories by read status
+      const unreadStories: StoryRow[] = [];
       const inProgressList: InProgressStory[] = [];
       for (const story of allStories) {
         const { data: pops } = await supabase
@@ -132,11 +133,16 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
           .eq("reader_id", user.id)
           .eq("story_id", story.id);
         const count = pops?.length ?? 0;
-        if (count > 0 && count < 5) {
+        if (count === 0) {
+          unreadStories.push(story);
+        } else if (count < 5) {
           inProgressList.push({ story, sectionsRead: count });
         }
+        // count >= 5: completed, exclude from feed entirely
       }
+      setStories(unreadStories);
       setInProgress(inProgressList);
+      setAllRead(unreadStories.length === 0 && inProgressList.length === 0 && allStories.length > 0);
       setLoading(false);
     }
     load();
@@ -451,12 +457,12 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     const genreColor = genreColors[activeStory.genre[0] ?? ""] ?? colors.accent[500];
 
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <div className="min-h-screen bg-slate-50">
         {/* Top bar */}
-        <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800">
+        <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white/80 backdrop-blur border-b border-slate-200">
           <button
             onClick={handleBackToFeed}
-            className="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            className="text-sm text-slate-500 hover:text-slate-800 transition-colors"
           >
             &larr; Back to feed
           </button>
@@ -467,7 +473,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                 className={`w-2 h-2 rounded-full transition-colors ${
                   i <= currentSection
                     ? "bg-orange-500"
-                    : "bg-slate-300 dark:bg-slate-700"
+                    : "bg-slate-300"
                 }`}
               />
             ))}
@@ -494,13 +500,13 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
             {activeStory.triggers?.map((tw: string) => (
               <span
                 key={tw}
-                className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300"
+                className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700"
               >
                 {tw}
               </span>
             ))}
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
             {activeStory.title}
           </h1>
           <p className="mt-1 text-slate-500 italic">{activeStory.hook}</p>
@@ -526,7 +532,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                 </div>
 
                 <div
-                  className="prose prose-slate dark:prose-invert max-w-none whitespace-pre-wrap leading-relaxed text-slate-700 dark:text-slate-300 mb-6"
+                  className="prose prose-slate max-w-none whitespace-pre-wrap leading-relaxed text-slate-700 mb-6"
                   onMouseUp={handleTextSelect}
                   onTouchEnd={handleTextSelect}
                 >
@@ -555,7 +561,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                       />
                     ) : surveyStep === "q1" ? (
                       <div className="space-y-4 max-w-md mx-auto">
-                        <p className="text-lg font-bold text-slate-800 dark:text-white">
+                        <p className="text-lg font-bold text-slate-800">
                           {ENDING_SURVEY_QUESTIONS.q1.prompt}
                         </p>
                         <div className="space-y-2">
@@ -563,7 +569,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                             <button
                               key={opt.key}
                               onClick={() => handleSurveyAnswer("q1", opt.key)}
-                              className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-orange-400 transition-colors text-sm"
+                              className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 bg-white hover:border-orange-400 transition-colors text-sm"
                             >
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold mr-3">
                                 {opt.key}
@@ -575,7 +581,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                       </div>
                     ) : surveyStep === "q2" ? (
                       <div className="space-y-4 max-w-md mx-auto">
-                        <p className="text-lg font-bold text-slate-800 dark:text-white">
+                        <p className="text-lg font-bold text-slate-800">
                           {ENDING_SURVEY_QUESTIONS.q2.prompt}
                         </p>
                         <div className="space-y-2">
@@ -584,7 +590,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                               key={opt.key}
                               onClick={() => handleSurveyAnswer("q2", opt.key)}
                               disabled={surveyLoading}
-                              className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-orange-400 transition-colors text-sm disabled:opacity-50"
+                              className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 bg-white hover:border-orange-400 transition-colors text-sm disabled:opacity-50"
                             >
                               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-orange-500 text-white text-xs font-bold mr-3">
                                 {opt.key}
@@ -609,7 +615,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                           className={`mt-2 px-6 py-2.5 rounded-full font-semibold text-sm transition-colors ${
                             inGarden
                               ? "bg-green-500 text-white hover:bg-green-600"
-                              : "bg-white dark:bg-slate-800 border-2 border-orange-400 text-orange-600 hover:bg-orange-50"
+                              : "bg-white border-2 border-orange-400 text-orange-600 hover:bg-orange-50"
                           }`}
                         >
                           {gardenLoading ? "..." : inGarden ? "🌱 In your Pop-py Garden" : "🌻 Add to Pop-py Garden"}
@@ -632,7 +638,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
 
                 {/* Divider between read sections */}
                 {i < currentSection && (
-                  <hr className="my-6 border-slate-200 dark:border-slate-800" />
+                  <hr className="my-6 border-slate-200" />
                 )}
               </div>
             );
@@ -642,8 +648,8 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         {/* Exit survey overlay */}
         {showExitSurvey && (
           <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full space-y-4">
+              <h3 className="text-lg font-bold text-slate-800">
                 Why did you stop reading?
               </h3>
               <p className="text-xs text-slate-400">Your feedback helps writers improve</p>
@@ -653,7 +659,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                     key={r.key}
                     onClick={() => handleExitReason(r.key)}
                     disabled={exitLoading}
-                    className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:border-orange-400 transition-colors text-sm disabled:opacity-50"
+                    className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:border-orange-400 transition-colors text-sm disabled:opacity-50"
                   >
                     {r.label}
                   </button>
@@ -677,7 +683,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         {/* Reaction toolbar (floating) */}
         {reactionToolbar && (
           <div
-            className="fixed z-50 flex items-center gap-1 rounded-full bg-white dark:bg-slate-800 shadow-lg border border-slate-200 dark:border-slate-700 px-2 py-1"
+            className="fixed z-50 flex items-center gap-1 rounded-full bg-white shadow-lg border border-slate-200 px-2 py-1"
             style={{
               left: Math.max(60, Math.min(reactionToolbar.x, window.innerWidth - 60)),
               top: Math.max(40, reactionToolbar.y - 44),
@@ -686,7 +692,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
           >
             <button
               onClick={() => submitReaction("up")}
-              className="px-2 py-1 rounded-full text-lg hover:bg-green-50 dark:hover:bg-green-950 transition-colors"
+              className="px-2 py-1 rounded-full text-lg hover:bg-green-50 transition-colors"
               title="Like this passage"
             >
               👍
@@ -705,7 +711,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
 
         {/* Reactions remaining counter */}
         {reactionsRemaining < 10 && (
-          <div className="fixed bottom-4 right-4 z-40 rounded-full bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs text-slate-500">
+          <div className="fixed bottom-4 right-4 z-40 rounded-full bg-white shadow border border-slate-200 px-3 py-1.5 text-xs text-slate-500">
             {reactionsRemaining} reaction{reactionsRemaining !== 1 ? "s" : ""} remaining
           </div>
         )}
@@ -716,19 +722,19 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
   // ---------- Feed / Bubble View ----------
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-slate-400 animate-pulse text-lg">Loading stories...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 relative overflow-hidden">
       {/* Corner controls */}
       <div className="absolute top-4 left-4 z-30">
         <button
           onClick={() => setMode("chooser")}
-          className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors"
+          className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 transition-colors"
         >
           Switch to Writing
         </button>
@@ -745,7 +751,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         <button
           onClick={handleLogout}
           disabled={loggingOut}
-          className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-200/50 dark:bg-slate-800/50 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-200/50 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50"
         >
           {loggingOut ? "..." : "Logout"}
         </button>
@@ -763,12 +769,12 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
                 <button
                   key={item.story.id}
                   onClick={() => handleContinue(item)}
-                  className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-orange-400 transition-colors shadow-sm"
+                  className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-orange-400 transition-colors shadow-sm"
                 >
-                  <p className="text-sm font-semibold text-slate-700 dark:text-white truncate max-w-[140px]">
+                  <p className="text-sm font-semibold text-slate-700 truncate max-w-[140px]">
                     {item.story.title}
                   </p>
-                  <div className="mt-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5">
+                  <div className="mt-1.5 w-full bg-slate-200 rounded-full h-1.5">
                     <div
                       className="h-1.5 rounded-full bg-orange-500"
                       style={{ width: `${(item.sectionsRead / 5) * 100}%` }}
@@ -800,6 +806,22 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
             </p>
           </div>
         </>
+      ) : allRead ? (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center space-y-3 max-w-md mx-auto px-4">
+            <div className="text-5xl">&#127881;</div>
+            <p className="text-xl font-bold text-slate-800">You've read every story!</p>
+            <p className="text-sm text-slate-500">
+              Check back later for new submissions, and be sure to come back for the live PopOff reveal!
+            </p>
+            <button
+              onClick={() => setMode("writing")}
+              className="mt-4 px-6 py-2.5 rounded-full bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors text-sm"
+            >
+              Switch to Writing
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center space-y-2">

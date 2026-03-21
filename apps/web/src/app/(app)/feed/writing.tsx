@@ -533,8 +533,8 @@ function OverviewTab({
                   )}
                 </div>
                 {story.exitTotal > 0 && (
-                  <div className="mt-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/30 text-xs">
-                    <p className="text-red-600 dark:text-red-400 font-semibold">
+                  <div className="mt-2 px-3 py-2 rounded-lg bg-red-50 text-xs">
+                    <p className="text-red-600 font-semibold">
                       {story.exitTotal} reader{story.exitTotal !== 1 ? "s" : ""} stopped early
                       {story.exitAvgSection !== null && ` (avg section ${story.exitAvgSection.toFixed(1)})`}
                     </p>

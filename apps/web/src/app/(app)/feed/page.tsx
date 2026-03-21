@@ -38,7 +38,7 @@ export default function FeedPage() {
   // Don't render until hydrated to avoid flash
   if (!hydrated) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -55,12 +55,12 @@ export default function FeedPage() {
 
   // ---------- Intent Chooser ----------
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 relative overflow-hidden">
       {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 z-30 px-4 py-3 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
-        <p className="text-sm font-bold tracking-tight text-slate-800 dark:text-white">
+      <div className="absolute top-0 left-0 right-0 z-30 px-4 py-3 flex items-center justify-between bg-white/80 backdrop-blur-sm border-b border-slate-200">
+        <p className="text-sm font-bold tracking-tight text-slate-800">
           <span className="text-orange-500">Pop</span>
-          <span className="text-slate-400 dark:text-slate-500">Lit</span>
+          <span className="text-slate-400">Lit</span>
         </p>
         <div className="flex items-center gap-2">
           {isAdmin && (
@@ -74,7 +74,7 @@ export default function FeedPage() {
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors disabled:opacity-50"
           >
             {loggingOut ? "..." : "Logout"}
           </button>
@@ -83,10 +83,10 @@ export default function FeedPage() {
 
       {/* Title text */}
       <div className="absolute top-[18vh] left-0 right-0 z-20 text-center pointer-events-none">
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-800 dark:text-white">
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-800">
           What are you here for today?
         </h1>
-        <p className="mt-2 text-slate-500 dark:text-slate-400 text-sm">
+        <p className="mt-2 text-slate-500 text-sm">
           Pop a bubble to get started
         </p>
       </div>
