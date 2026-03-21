@@ -114,12 +114,13 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         return;
       }
 
-      // Get published stories
+      // Get published stories (exclude user's own)
       const { data: storyData } = await supabase
         .from("stories")
         .select("*, users!author_id(pen_name, real_name, avatar_url)")
         .eq("popcycle_id", popcycle.id)
-        .eq("status", "published");
+        .eq("status", "published")
+        .neq("author_id", user.id);
 
       const allStories = (storyData ?? []) as StoryRow[];
 

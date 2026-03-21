@@ -130,7 +130,7 @@ export function StoryReader({
             </div>
 
             {/* Section content */}
-            <div className="prose prose-lg dark:prose-invert max-w-none whitespace-pre-wrap leading-relaxed">
+            <div className="prose prose-lg max-w-none whitespace-pre-wrap leading-relaxed">
               {section}
             </div>
 

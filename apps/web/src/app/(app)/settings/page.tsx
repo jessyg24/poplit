@@ -199,12 +199,12 @@ export default function SettingsPage() {
 
       {/* Success / Error messages */}
       {successMsg && (
-        <div className="p-3 rounded-xl bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 text-sm text-green-600 dark:text-green-400">
+        <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-600">
           {successMsg}
         </div>
       )}
       {serverError && (
-        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-sm text-red-600 dark:text-red-400">
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-600">
           {serverError}
         </div>
       )}
@@ -406,13 +406,13 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setDeleteConfirm(true)}
-              className="w-full py-3 rounded-xl border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 font-medium hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+              className="w-full py-3 rounded-xl border border-red-300 text-red-600 font-medium hover:bg-red-50 transition-colors"
             >
               Delete Account
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-red-600 dark:text-red-400">
+              <p className="text-sm text-red-600">
                 This will anonymize your account data and sign you out. Your
                 stories will remain but be attributed to &quot;Deleted
                 User&quot;. A data export will be downloaded automatically.

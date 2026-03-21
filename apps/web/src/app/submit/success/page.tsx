@@ -32,20 +32,20 @@ function SuccessContent() {
   }, [storyId]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4">
-      <div className="max-w-md w-full text-center space-y-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+      <div className="max-w-md w-full text-center space-y-4 rounded-xl border border-slate-200 bg-white p-8">
         <div className="text-5xl">🎉</div>
-        <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white">
+        <h1 className="text-2xl font-extrabold text-slate-800">
           Story Submitted!
         </h1>
-        <p className="text-slate-500 dark:text-slate-400">
+        <p className="text-slate-500">
           {title ? (
-            <>Your story <span className="font-semibold text-slate-700 dark:text-slate-200">&ldquo;{title}&rdquo;</span> is now under review.</>
+            <>Your story <span className="font-semibold text-slate-700">&ldquo;{title}&rdquo;</span> is now under review.</>
           ) : (
             <>Your story is now under review.</>
           )}
         </p>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-slate-500">
           You&apos;ll receive a notification once it&apos;s approved and published.
         </p>
         <a

@@ -187,7 +187,7 @@ export default function SubmitPage() {
                         }}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                           selected
-                            ? "bg-red-100 dark:bg-red-950 border-red-300 dark:border-red-700 text-red-700 dark:text-red-300"
+                            ? "bg-red-100 border-red-300 text-red-700"
                             : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-text-secondary)]"
                         }`}
                       >
@@ -290,14 +290,14 @@ function PreviewMode({
         {triggers.map((tw) => (
           <span
             key={tw}
-            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300"
+            className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"
           >
             {tw}
           </span>
         ))}
       </div>
 
-      <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
+      <div className="prose prose-sm max-w-none whitespace-pre-wrap">
         {content || "Start writing to see a preview..."}
       </div>
     </div>

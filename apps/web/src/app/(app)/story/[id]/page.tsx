@@ -81,7 +81,7 @@ export default async function StoryPage({
           {story.triggers?.map((tw: string) => (
             <span
               key={tw}
-              className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300"
+              className="px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700"
             >
               {tw}
             </span>

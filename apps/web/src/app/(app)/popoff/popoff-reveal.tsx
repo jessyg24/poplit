@@ -38,9 +38,9 @@ export function PopoffReveal({
 
   const podiumHeights = ["h-32", "h-44", "h-24"];
   const podiumColors = [
-    "bg-gray-300 dark:bg-gray-600", // Silver
-    "bg-yellow-400 dark:bg-yellow-500", // Gold
-    "bg-amber-600 dark:bg-amber-700", // Bronze
+    "bg-gray-300", // Silver
+    "bg-yellow-400", // Gold
+    "bg-amber-600", // Bronze
   ];
   const labels = ["2nd", "1st", "3rd"];
   const prizePercents = [
