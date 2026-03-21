@@ -401,7 +401,7 @@ export interface Database {
           section: number;
           start_offset: number;
           end_offset: number;
-          reaction_type: "up";
+          reaction_type: "like" | "love" | "laugh" | "cry";
           text_snippet: string;
           convergence_multiplier: number;
           created_at: string;

@@ -54,9 +54,13 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { story_id, section, start_offset, end_offset, text_snippet } = await req.json();
+    const { story_id, section, start_offset, end_offset, text_snippet, reaction_type: rawReactionType } = await req.json();
 
-    // Validate required fields (reaction_type is always "up" now)
+    // Validate and default reaction_type
+    const VALID_REACTION_TYPES = ["like", "love", "laugh", "cry"];
+    const reaction_type = VALID_REACTION_TYPES.includes(rawReactionType) ? rawReactionType : "like";
+
+    // Validate required fields
     if (!story_id || !section || start_offset == null || end_offset == null) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: story_id, section, start_offset, end_offset" }),
@@ -72,22 +76,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Verify reader has read this section
-    const { data: pop } = await supabase
-      .from("pops")
-      .select("id")
-      .eq("reader_id", user.id)
-      .eq("story_id", story_id)
-      .eq("section_opened", section)
-      .maybeSingle();
-
-    if (!pop) {
-      return new Response(JSON.stringify({ error: "You must read this section before reacting" }), {
-        status: 403,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
-    }
 
     // Enforce max reactions per reader per story
     const { count } = await supabase
@@ -129,7 +117,7 @@ Deno.serve(async (req: Request) => {
         section,
         start_offset,
         end_offset,
-        reaction_type: "up",
+        reaction_type,
         text_snippet: (text_snippet ?? "").slice(0, 500),
         convergence_multiplier: convergenceMultiplier,
       })
@@ -146,11 +134,13 @@ Deno.serve(async (req: Request) => {
     // Recalculate full reaction_score for this story
     const { data: allReactions } = await supabase
       .from("reactions")
-      .select("convergence_multiplier")
+      .select("convergence_multiplier, reaction_type")
       .eq("story_id", story_id);
 
+    const REACTION_WEIGHTS: Record<string, number> = { like: 1.0, love: 1.5, laugh: 2.0, cry: 2.0 };
     const reactionScore = (allReactions ?? []).reduce(
-      (sum: number, r: { convergence_multiplier: number }) => sum + (r.convergence_multiplier ?? 1.0),
+      (sum: number, r: { convergence_multiplier: number; reaction_type: string }) =>
+        sum + (r.convergence_multiplier ?? 1.0) * (REACTION_WEIGHTS[r.reaction_type] ?? 1.0),
       0,
     );
 

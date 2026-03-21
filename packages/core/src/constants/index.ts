@@ -141,6 +141,16 @@ export const AI_DETECTION_THRESHOLD = 0.65;
 // Max inline text reactions per reader per story
 export const MAX_REACTIONS_PER_READER = 10;
 
+// Reaction types with weighted values
+export const REACTION_TYPES = [
+  { key: "like", emoji: "\ud83d\udc4d", label: "Like", weight: 1.0 },
+  { key: "love", emoji: "\u2764\ufe0f", label: "Love", weight: 1.5 },
+  { key: "laugh", emoji: "\ud83d\ude02", label: "Laugh", weight: 2.0 },
+  { key: "cry", emoji: "\ud83d\ude22", label: "Cry", weight: 2.0 },
+] as const;
+
+export type ReactionType = (typeof REACTION_TYPES)[number]["key"];
+
 // Survey decay — higher answer = more disappointment = more decay
 export const SURVEY_DECAY = { A: 1.00, B: 0.95, C: 0.82, D: 0.65 } as const;
 

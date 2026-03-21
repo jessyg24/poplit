@@ -37,9 +37,9 @@ export function SectionPopBarrier({
   const wobblePhaseRef = useRef(Math.random() * Math.PI * 2);
   const activeRef = useRef(false);
 
-  const BUBBLE_R = overlay ? 60 : 32;
-  const CANVAS_W = overlay ? 240 : 260;
-  const CANVAS_H = overlay ? 160 : 80;
+  const BUBBLE_R = overlay ? 120 : 32;
+  const CANVAS_W = overlay ? 360 : 260;
+  const CANVAS_H = overlay ? 300 : 80;
 
   // Draw the barrier bubble
   useEffect(() => {
@@ -60,7 +60,7 @@ export function SectionPopBarrier({
         ctx!.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
         if (!popped) {
-          wobblePhaseRef.current += 0.03;
+          wobblePhaseRef.current += 0.008;
           const cx = CANVAS_W / 2;
           const cy = CANVAS_H / 2;
           const segments = 32;
@@ -68,7 +68,7 @@ export function SectionPopBarrier({
           ctx!.beginPath();
           for (let i = 0; i <= segments; i++) {
             const theta = (i / segments) * Math.PI * 2;
-            const wobble = Math.sin(2 * theta + wobblePhaseRef.current) * (overlay ? 4 : 2);
+            const wobble = Math.sin(2 * theta + wobblePhaseRef.current) * (overlay ? 3 : 2);
             const r = BUBBLE_R + wobble;
             const px = cx + Math.cos(theta) * r;
             const py = cy + Math.sin(theta) * r;
@@ -88,10 +88,10 @@ export function SectionPopBarrier({
           ctx!.stroke();
 
           // Shine
-          const shineOffX = overlay ? -14 : -8;
-          const shineOffY = overlay ? -18 : -10;
-          const shineRx = overlay ? 14 : 8;
-          const shineRy = overlay ? 9 : 5;
+          const shineOffX = overlay ? -28 : -8;
+          const shineOffY = overlay ? -36 : -10;
+          const shineRx = overlay ? 28 : 8;
+          const shineRy = overlay ? 18 : 5;
           ctx!.beginPath();
           ctx!.ellipse(cx + shineOffX, cy + shineOffY, shineRx, shineRy, -0.4, 0, Math.PI * 2);
           ctx!.fillStyle = "rgba(255,255,255,0.25)";
@@ -99,13 +99,13 @@ export function SectionPopBarrier({
 
           // Label
           ctx!.fillStyle = "#fff";
-          ctx!.font = overlay ? "bold 16px system-ui, sans-serif" : "bold 11px system-ui, sans-serif";
+          ctx!.font = overlay ? "bold 20px system-ui, sans-serif" : "bold 11px system-ui, sans-serif";
           ctx!.textAlign = "center";
           ctx!.textBaseline = "middle";
-          ctx!.fillText(`Section ${sectionNumber + 1}`, cx, cy - (overlay ? 6 : 3));
-          ctx!.font = overlay ? "14px system-ui, sans-serif" : "10px system-ui, sans-serif";
+          ctx!.fillText(`Section ${sectionNumber + 1}`, cx, cy - (overlay ? 14 : 3));
+          ctx!.font = overlay ? "16px system-ui, sans-serif" : "10px system-ui, sans-serif";
           ctx!.fillStyle = "rgba(255,255,255,0.75)";
-          ctx!.fillText("Pop to continue", cx, cy + (overlay ? 16 : 11));
+          ctx!.fillText("Pop to continue", cx, cy + (overlay ? 20 : 11));
         }
 
         // Pop particles

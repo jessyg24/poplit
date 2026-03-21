@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { StoryBubbleCanvas, type StoryBubbleData } from "@/components/ui/story-bubble";
 import { SectionPopBarrier } from "@/components/ui/section-pop-barrier";
 import { useModeStore } from "@/stores/mode";
-import { MIN_READ_TIME_MS, ENDING_SURVEY_QUESTIONS, EXIT_SURVEY_REASONS } from "@poplit/core/constants";
+import { MIN_READ_TIME_MS, ENDING_SURVEY_QUESTIONS, EXIT_SURVEY_REASONS, REACTION_TYPES } from "@poplit/core/constants";
 import { colors } from "@poplit/ui";
 
 const genreColors = colors.genre as Record<string, string>;
@@ -37,7 +37,7 @@ interface ReactionRecord {
   section: number;
   start_offset: number;
   end_offset: number;
-  reaction_type: "up";
+  reaction_type: string;
   text_snippet: string;
 }
 
@@ -283,9 +283,9 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
     });
   }, [activeStory, currentSection, reactionsRemaining]);
 
-  // Submit a reaction (up-only)
+  // Submit a reaction
   const submitReaction = useCallback(
-    async (type: "up") => {
+    async (type: string) => {
       if (!reactionToolbar || !activeStory || !userId) return;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -451,7 +451,8 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
       if (sectionReactions.length === 0) return text;
 
       // Build a list of highlight ranges using indexOf on text_snippet
-      const ranges: { start: number; end: number }[] = [];
+      const REACTION_TYPE_WEIGHTS: Record<string, number> = { like: 1.0, love: 1.5, laugh: 2.0, cry: 2.0, up: 1.0 };
+      const ranges: { start: number; end: number; type: string }[] = [];
       const used = new Set<string>();
 
       for (const r of sectionReactions) {
@@ -467,25 +468,36 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         const idx = text.indexOf(r.text_snippet, searchFrom);
         if (idx === -1) continue;
         used.add(`${key}:${searchFrom}`);
-        ranges.push({ start: idx, end: idx + r.text_snippet.length });
+        ranges.push({ start: idx, end: idx + r.text_snippet.length, type: r.reaction_type });
       }
 
       if (ranges.length === 0) return text;
 
       // Sort ranges by start position and merge overlapping ones
       ranges.sort((a, b) => a.start - b.start);
-      const merged: { start: number; end: number }[] = [ranges[0]!];
+      const merged: { start: number; end: number; type: string }[] = [ranges[0]!];
       for (let i = 1; i < ranges.length; i++) {
         const prev = merged[merged.length - 1]!;
         const curr = ranges[i]!;
         if (curr.start <= prev.end) {
           prev.end = Math.max(prev.end, curr.end);
+          // Use the higher-weight type when merging
+          if ((REACTION_TYPE_WEIGHTS[curr.type] ?? 1.0) > (REACTION_TYPE_WEIGHTS[prev.type] ?? 1.0)) {
+            prev.type = curr.type;
+          }
         } else {
           merged.push(curr);
         }
       }
 
       // Build JSX fragments
+      const highlightColors: Record<string, string> = {
+        like: "bg-orange-100",
+        love: "bg-pink-100",
+        laugh: "bg-yellow-100",
+        cry: "bg-blue-100",
+        up: "bg-orange-100", // legacy
+      };
       const parts: ReactNode[] = [];
       let cursor = 0;
       for (const range of merged) {
@@ -495,7 +507,7 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
         parts.push(
           <mark
             key={`hl-${range.start}`}
-            className="bg-orange-100 rounded px-0.5"
+            className={`${highlightColors[range.type] ?? "bg-orange-100"} rounded px-0.5`}
           >
             {text.slice(range.start, range.end)}
           </mark>,
@@ -777,13 +789,16 @@ export function ReadingMode({ isAdmin = false }: { isAdmin?: boolean }) {
               transform: "translateX(-50%)",
             }}
           >
-            <button
-              onClick={() => submitReaction("up")}
-              className="px-2 py-1 rounded-full text-lg hover:bg-green-50 transition-colors"
-              title="Like this passage"
-            >
-              👍
-            </button>
+            {REACTION_TYPES.map((rt) => (
+              <button
+                key={rt.key}
+                onClick={() => submitReaction(rt.key)}
+                className="px-2 py-1 rounded-full text-lg hover:bg-slate-100 transition-colors"
+                title={rt.label}
+              >
+                {rt.emoji}
+              </button>
+            ))}
             <button
               onClick={() => {
                 setReactionToolbar(null);
