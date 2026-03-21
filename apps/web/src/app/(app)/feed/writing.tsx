@@ -1284,7 +1284,9 @@ function SubmitTab({
 
   const isOpen =
     popcycle &&
-    (popcycle.status === "submissions_open" || popcycle.status === "reading_open") &&
+    popcycle.status !== "draft" &&
+    popcycle.status !== "completed" &&
+    popcycle.status !== "popoff" &&
     new Date(popcycle.submissions_close_at) > new Date();
 
   const hasCredits = (user?.entry_credits ?? 0) > 0;
@@ -1434,7 +1436,9 @@ function SubmitTab({
           </h2>
           <p className="text-sm text-slate-400 max-w-md mx-auto">
             {popcycle
-              ? `The current popcycle "${popcycle.title}" is in the ${popcycle.status.replace(/_/g, " ")} phase. Check back when submissions open.`
+              ? popcycle.status === "popoff" || popcycle.status === "completed"
+                ? `"${popcycle.title}" has ended. Check back for the next Popcycle!`
+                : `Submissions for "${popcycle.title}" have closed.`
               : "There is no active popcycle right now. Check back soon!"}
           </p>
         </div>
