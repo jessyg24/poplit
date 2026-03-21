@@ -76,7 +76,7 @@ export const popcycleSchema = z.object({
   prompt_3: z.string().min(1, "Prompt 3 is required").max(500),
   prompt_4: z.string().min(1, "Prompt 4 is required").max(500),
   prompt_5: z.string().min(1, "Prompt 5 is required").max(500),
-  description: z.string().max(1000).optional(),
+  description: z.preprocess((val) => (val === "" ? undefined : val), z.string().max(1000).optional()),
   format: z.enum(["standard", "flash", "themed", "sponsored"]),
   submissions_open_at: z.preprocess(
     (val) => typeof val === "string" ? new Date(val).toISOString() : val,
@@ -103,8 +103,8 @@ export const popcycleSchema = z.object({
   first_pct: z.number().int().min(0).max(100).default(65),
   second_pct: z.number().int().min(0).max(100).default(12),
   third_pct: z.number().int().min(0).max(100).default(5),
-  sponsor_name: z.string().optional(),
-  sponsor_logo_url: z.string().url().optional(),
+  sponsor_name: z.preprocess((val) => (val === "" ? undefined : val), z.string().optional()),
+  sponsor_logo_url: z.preprocess((val) => (val === "" ? undefined : val), z.string().url().optional()),
 });
 
 // Profile update
